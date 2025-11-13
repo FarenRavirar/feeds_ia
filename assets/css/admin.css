@@ -1,0 +1,158 @@
+/**
+ * Estilos de painel para o plugin Feeds IA.
+ *
+ * Escopo:
+ * - Layout geral das telas do plugin (wrap, cards, filtros).
+ * - Tabelas de feeds, agendamentos, logs e execuções.
+ * - Feedback visual básico para botões em processamento.
+ *
+ * Observação:
+ * - O objetivo é manter o visual coerente com o painel padrão do WordPress,
+ *   apenas organizando melhor a leitura das informações.
+ */
+
+/* Container principal do plugin */
+.feeds-ia-wrap {
+	max-width: 1200px;
+}
+
+.feeds-ia-wrap .description {
+	max-width: 900px;
+}
+
+/* Cartões de métricas no dashboard */
+.feeds-ia-dashboard-metrics {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 16px;
+	margin: 16px 0;
+}
+
+.feeds-ia-card {
+	flex: 1 1 260px;
+	background: #fff;
+	border: 1px solid #ccd0d4;
+	border-radius: 4px;
+	padding: 16px;
+	box-shadow: 0 1px 1px rgba(0, 0, 0, 0.04);
+}
+
+.feeds-ia-card h2 {
+	margin-top: 0;
+	margin-bottom: 8px;
+	font-size: 1.2em;
+}
+
+.feeds-ia-card ul {
+	margin: 0 0 8px;
+	padding-left: 18px;
+}
+
+/* Tabelas gerais */
+.feeds-ia-wrap table.widefat {
+	margin-top: 12px;
+}
+
+.feeds-ia-wrap table.widefat th,
+.feeds-ia-wrap table.widefat td {
+	vertical-align: top;
+}
+
+/* Filtros na tela de logs */
+.feeds-ia-filters {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 16px;
+	margin: 12px 0 4px;
+	align-items: flex-end;
+}
+
+.feeds-ia-filter-item {
+	min-width: 180px;
+}
+
+.feeds-ia-filter-item select {
+	min-width: 160px;
+}
+
+.feeds-ia-filter-submit {
+	margin-top: 4px;
+}
+
+/* Coluna de ações de feed (Processar agora / Remover) */
+.feeds-ia-feed-actions {
+	margin-top: 4px;
+	display: flex;
+	flex-wrap: wrap;
+	gap: 4px;
+}
+
+/* Coluna de dias da semana em agendamentos */
+.feeds-ia-table-schedules .feeds-ia-days-column {
+	min-width: 160px;
+}
+
+/* Estado de botão em carregamento (usado em admin.js) */
+.feeds-ia-btn-loading {
+	opacity: 0.7;
+	cursor: default;
+	position: relative;
+}
+
+/* Indicador simples de atividade (pseudo-spinner) */
+.feeds-ia-btn-loading::after {
+	content: '';
+	display: inline-block;
+	width: 10px;
+	height: 10px;
+	margin-left: 6px;
+	border-radius: 50%;
+	border: 2px solid rgba(0, 0, 0, 0.2);
+	border-top-color: rgba(0, 0, 0, 0.5);
+	animation: feeds-ia-spin 0.7s linear infinite;
+	vertical-align: middle;
+}
+
+/* Ajustes para tabelas específicas */
+.feeds-ia-table-feeds td,
+.feeds-ia-table-schedules td,
+.feeds-ia-table-logs td,
+.feeds-ia-table-runs td,
+.feeds-ia-table-posts td {
+	padding-top: 6px;
+	padding-bottom: 6px;
+}
+
+/* Quebras de linha em títulos longos */
+.feeds-ia-table-logs td:nth-child(4),
+.feeds-ia-table-logs td:nth-child(5),
+.feeds-ia-table-posts td:nth-child(2) {
+	word-break: break-word;
+}
+
+/* Layout responsivo básico */
+@media screen and (max-width: 960px) {
+	.feeds-ia-dashboard-metrics {
+		flex-direction: column;
+	}
+
+	.feeds-ia-filters {
+		flex-direction: column;
+		align-items: flex-start;
+	}
+
+	.feeds-ia-filter-item select {
+		min-width: 0;
+		width: 100%;
+	}
+}
+
+/* Animação do pseudo-spinner */
+@keyframes feeds-ia-spin {
+	from {
+		transform: rotate(0deg);
+	}
+	to {
+		transform: rotate(360deg);
+	}
+}
