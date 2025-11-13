@@ -21,6 +21,28 @@ if ( ! current_user_can( 'manage_options' ) ) {
 	return;
 }
 
+$notices = array();
+
+// Tratamento de POST para limpar logs
+if ( 'POST' === $_SERVER['REQUEST_METHOD'] && isset( $_POST['feeds_ia_logs_nonce'] ) ) {
+	if ( wp_verify_nonce( sanitize_text_field( wp_unslash( $_POST['feeds_ia_logs_nonce'] ) ), 'feeds_ia_clear_logs' ) ) {
+		$action = isset( $_POST['feeds_ia_action'] ) ? sanitize_key( wp_unslash( $_POST['feeds_ia_action'] ) ) : '';
+
+		if ( 'clear_logs' === $action ) {
+			Feeds_IA_Logger::clear_logs();
+			$notices[] = array(
+				'type'    => 'success',
+				'message' => 'Logs limpos com sucesso.',
+			);
+		}
+	} else {
+		$notices[] = array(
+			'type'    => 'error',
+			'message' => 'Falha na validação do formulário.',
+		);
+	}
+}
+
 // Filtros via GET.
 $filter_feed   = isset( $_GET['feeds_ia_filter_feed'] ) ? sanitize_text_field( wp_unslash( $_GET['feeds_ia_filter_feed'] ) ) : '';
 $filter_status = isset( $_GET['feeds_ia_filter_status'] ) ? sanitize_text_field( wp_unslash( $_GET['feeds_ia_filter_status'] ) ) : '';
@@ -49,17 +71,28 @@ if ( class_exists( 'Feeds_IA_Settings' ) ) {
 }
 
 $statuses = array(
-	''               => 'Todos os status',
-	'success'        => 'Sucesso (rascunho criado)',
-	'error-feed'     => 'Erro de feed',
-	'error-ai'       => 'Erro de IA',
-	'error-publish'  => 'Erro ao criar rascunho',
-	'error-image'    => 'Erro de imagem destacada',
+	''                           => 'Todos os status',
+	'success'                    => 'Sucesso (rascunho criado)',
+	'feed-start'                 => 'Início de processamento',
+	'feed-completed'             => 'Processamento concluído',
+	'feed-completed-with-errors' => 'Concluído com erros',
+	'error-feed'                 => 'Erro de feed',
+	'error-ai'                   => 'Erro de IA',
+	'error-publish'              => 'Erro ao criar rascunho',
+	'error-image'                => 'Erro de imagem destacada',
 );
 
 ?>
 <div class="wrap feeds-ia-wrap">
 	<h1><?php echo esc_html( 'Feeds IA – Logs' ); ?></h1>
+
+	<?php if ( ! empty( $notices ) ) : ?>
+		<?php foreach ( $notices as $notice ) : ?>
+			<div class="notice notice-<?php echo esc_attr( $notice['type'] ); ?> is-dismissible">
+				<p><?php echo esc_html( $notice['message'] ); ?></p>
+			</div>
+		<?php endforeach; ?>
+	<?php endif; ?>
 
 	<p class="description">
 		Esta tela registra cada tentativa de importação realizada pelo Feeds IA.
@@ -170,4 +203,15 @@ $statuses = array(
 			<?php endif; ?>
 		</tbody>
 	</table>
+
+	<div class="feeds-ia-logs-actions">
+		<form method="post" action="" style="display: inline-block;">
+			<?php wp_nonce_field( 'feeds_ia_clear_logs', 'feeds_ia_logs_nonce' ); ?>
+			<input type="hidden" name="feeds_ia_action" value="clear_logs" />
+			<button type="submit" class="button button-secondary" 
+				onclick="return confirm('Tem certeza de que deseja limpar todos os logs? Esta ação não pode ser desfeita.');">
+				Limpar todos os logs
+			</button>
+		</form>
+	</div>
 </div>

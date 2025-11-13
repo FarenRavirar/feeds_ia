@@ -96,9 +96,9 @@ Regra prática para o modelo:
 
 - **Regra fixa:** todo post criado pelo plugin é salvo como **rascunho**:
 
-  ```php
+  php
   'post_status' => 'draft';
-````
+
 
 * Mesmo que exista um campo “Modo de publicação” na tela de feeds:
 
@@ -111,6 +111,13 @@ Regra prática para o modelo:
 * Tom informativo e objetivo, adequado a notas/notícias.
 * Sem emoção explícita e sem opinião não presente na fonte.
 
+### 2.8. Invariantes de SEO e metadados**
+
+ * Todo rascunho gerado deve conter um **resumo curto em português do Brasil**, adequado para uso como metadescrição.
+ * O plugin deve armazenar esse resumo em `_feeds_ia_summary` e, quando o Yoast SEO estiver ativo, no meta `_yoast_wpseo_metadesc` do post. ([Stack Overflow][2])
+ * O plugin deve gravar uma **frase-chave de foco** derivada do próprio título (por exemplo, nome do sistema, suplemento ou produto citado), sem criar termos que não apareçam no texto. Essa frase-chave deve ser salva em `_yoast_wpseo_focuskw`. ([Stack Overflow][2])
+ * O plugin deve gerar **slug** e, quando aplicável, **título SEO** dentro de faixas recomendadas:   * slug encurtado, preservando o núcleo factual (sistema, produto, ação “chega ao Brasil” etc.);   * título SEO com comprimento aproximado de 50–60 caracteres, sem cortar de maneira que altere o sentido da notícia. ([Stack Overflow][3])
+ * Nenhum desses metadados pode contradizer o conteúdo factual do corpo do texto.
 ---
 
 ## 3. Escopo funcional
@@ -466,6 +473,11 @@ As instruções fixas devem incluir:
 
 * Pedido de um **resumo curto** (1–2 frases) para meta description.
 
+#### A resposta da IA é considerada **inválida** se:
+* reduzir o corpo da notícia a um único parágrafo curto quando o original tiver múltiplos parágrafos;
+* retornar um texto com volume muito inferior ao original (por exemplo, menos de ~60–70% das palavras).
+* Quando isso ocorrer, o plugin deve **registrar log de erro** para o item e **não criar rascunho de post** a partir daquela resposta.
+
 ### 6.2. Formato de resposta
 
 A saída deve ser **apenas JSON**:
@@ -685,3 +697,6 @@ Itens abaixo são sugestões de evolução, não obrigatórios:
 * Modo “pré-análise”: criar rascunhos marcados com uma tag específica quando o feed contiver termos sensíveis (por exemplo, mudanças de licença, polêmicas de mercado), facilitando triagem manual.
 
 Em qualquer evolução, as invariantes editoriais das seções 2 e 6 permanecem prioritárias.
+
+
+Falta: corrigir os textos que estão indo pouco, basicamente um parágrafo, e toda a parte do yoast.

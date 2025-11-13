@@ -218,12 +218,18 @@ class Feeds_IA_Cron {
 		$feed_config = Feeds_IA_Settings::sanitize_feed_config( $feed_config );
 		$feed_id     = isset( $feed_config['id'] ) ? sanitize_text_field( $feed_config['id'] ) : '';
 
+		$feed_name = isset( $feed_config['name'] ) ? $feed_config['name'] : $feed_id;
+
+		// Registra início da execução
+		Feeds_IA_Logger::log_feed_start( $feed_config, 'manual' );
+
 		try {
 			$items = Feeds_IA_Feeds_Manager::get_new_items_for_feed( $feed_config );
 		} catch ( Exception $e ) {
 			Feeds_IA_Logger::log(
 				array(
 					'feed_id'         => $feed_id,
+					'feed_name'       => $feed_name,
 					'title_original'  => '',
 					'title_generated' => '',
 					'status'          => 'error-feed',
@@ -235,8 +241,14 @@ class Feeds_IA_Cron {
 		}
 
 		if ( empty( $items ) || ! is_array( $items ) ) {
+			// Registra resultado mesmo se não houver itens
+			Feeds_IA_Logger::log_feed_result( $feed_config, 0, 0, 0 );
 			return;
 		}
+
+		$items_found = count( $items );
+		$posts_created = 0;
+		$errors = 0;
 
 		foreach ( $items as $item ) {
 			// 1) Pré-processamento.
@@ -249,6 +261,7 @@ class Feeds_IA_Cron {
 				Feeds_IA_Logger::log(
 					array(
 						'feed_id'         => $feed_id,
+						'feed_name'       => $feed_name,
 						'title_original'  => isset( $article['title'] ) ? wp_strip_all_tags( $article['title'] ) : '',
 						'title_generated' => '',
 						'status'          => 'error-ai',
@@ -256,6 +269,7 @@ class Feeds_IA_Cron {
 						'post_id'         => null,
 					)
 				);
+				$errors++;
 				continue;
 			}
 
@@ -264,8 +278,14 @@ class Feeds_IA_Cron {
 
 			if ( is_wp_error( $post_id ) ) {
 				// Log já feito dentro de create_post; não repete aqui.
+				$errors++;
 				continue;
+			} else {
+				$posts_created++;
 			}
 		}
+
+		// Registra resultado final da execução
+		Feeds_IA_Logger::log_feed_result( $feed_config, $items_found, $posts_created, $errors );
 	}
 }

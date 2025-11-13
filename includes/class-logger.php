@@ -48,6 +48,7 @@ class Feeds_IA_Logger {
 	 * Feeds_IA_Logger::log([
 	 *   'status'          => 'success',
 	 *   'feed_id'         => 'feed_abc',
+	 *   'feed_name'       => 'Nome do Feed',
 	 *   'title_original'  => 'Título original',
 	 *   'title_generated' => 'Título gerado',
 	 *   'message'         => '',
@@ -58,8 +59,9 @@ class Feeds_IA_Logger {
 	 */
 	public static function log( array $entry ) {
 		$defaults = array(
-			'timestamp'       => time(),
+			'log_at'          => current_time( 'timestamp' ),
 			'feed_id'         => '',
+			'feed_name'       => '',
 			'title_original'  => '',
 			'title_generated' => '',
 			'status'          => '',
@@ -69,8 +71,9 @@ class Feeds_IA_Logger {
 
 		$entry = wp_parse_args( $entry, $defaults );
 
-		$entry['timestamp']       = intval( $entry['timestamp'] );
+		$entry['log_at']          = intval( $entry['log_at'] );
 		$entry['feed_id']         = sanitize_text_field( $entry['feed_id'] );
+		$entry['feed_name']       = sanitize_text_field( $entry['feed_name'] );
 		$entry['title_original']  = sanitize_text_field( $entry['title_original'] );
 		$entry['title_generated'] = sanitize_text_field( $entry['title_generated'] );
 		$entry['status']          = sanitize_key( $entry['status'] );
@@ -136,14 +139,19 @@ class Feeds_IA_Logger {
 
 			// Sanitiza mínimo ao ler.
 			$entry_defaults = array(
-				'timestamp'       => 0,
+				'log_at'          => 0,
 				'feed_id'         => '',
+				'feed_name'       => '',
 				'title_original'  => '',
 				'title_generated' => '',
 				'status'          => '',
 				'message'         => '',
 				'post_id'         => null,
 			);
+			// Compatibilidade com logs antigos que usavam 'timestamp'
+			if ( isset( $entry['timestamp'] ) && ! isset( $entry['log_at'] ) ) {
+				$entry['log_at'] = $entry['timestamp'];
+			}
 			$entry = wp_parse_args( $entry, $entry_defaults );
 
 			// Filtro por feed_id, se fornecido.
@@ -164,6 +172,73 @@ class Feeds_IA_Logger {
 		}
 
 		return $result;
+	}
+
+	/**
+	 * Registra o início de uma execução de feed.
+	 *
+	 * @param array $feed_config Configuração do feed.
+	 * @param string $trigger Tipo de execução ('manual', 'cron', 'schedule').
+	 */
+	public static function log_feed_start( array $feed_config, $trigger = 'manual' ) {
+		$feed_name = isset( $feed_config['name'] ) ? $feed_config['name'] : '';
+		$feed_id = isset( $feed_config['id'] ) ? $feed_config['id'] : '';
+
+		if ( empty( $feed_name ) && ! empty( $feed_id ) ) {
+			$feed_name = $feed_id;
+		}
+
+		self::log( array(
+			'feed_id'         => $feed_id,
+			'feed_name'       => $feed_name,
+			'status'          => 'feed-start',
+			'message'         => sprintf( 'Iniciando processamento do feed (%s)', $trigger ),
+			'title_original'  => '',
+			'title_generated' => '',
+			'post_id'         => null,
+		) );
+	}
+
+	/**
+	 * Registra o resultado de uma execução de feed.
+	 *
+	 * @param array $feed_config Configuração do feed.
+	 * @param int $items_found Número de itens encontrados.
+	 * @param int $posts_created Número de posts criados.
+	 * @param int $errors Número de erros.
+	 */
+	public static function log_feed_result( array $feed_config, $items_found = 0, $posts_created = 0, $errors = 0 ) {
+		$feed_name = isset( $feed_config['name'] ) ? $feed_config['name'] : '';
+		$feed_id = isset( $feed_config['id'] ) ? $feed_config['id'] : '';
+
+		if ( empty( $feed_name ) && ! empty( $feed_id ) ) {
+			$feed_name = $feed_id;
+		}
+
+		$status = 'feed-completed';
+		if ( $errors > 0 ) {
+			$status = 'feed-completed-with-errors';
+		}
+
+		$message = sprintf(
+			'Processamento concluído: %d itens encontrados, %d rascunhos criados',
+			$items_found,
+			$posts_created
+		);
+
+		if ( $errors > 0 ) {
+			$message .= sprintf( ', %d erros', $errors );
+		}
+
+		self::log( array(
+			'feed_id'         => $feed_id,
+			'feed_name'       => $feed_name,
+			'status'          => $status,
+			'message'         => $message,
+			'title_original'  => '',
+			'title_generated' => '',
+			'post_id'         => null,
+		) );
 	}
 
 	/**

@@ -3,7 +3,7 @@
  *
  * Focos:
  * - Feedback visual ao testar a conexão com a IA (Gemini).
- * - Feedback visual ao acionar "Processar agora" para um feed.
+ * - Feedback visual ao acionar "Processar agora" ou "Remover" em Feeds.
  * - Organização mínima para futuras evoluções (AJAX, indicadores etc.).
  */
 
@@ -21,7 +21,7 @@
 		}
 
 		setupTestAIButton();
-		setupRunFeedNowButtons();
+		setupFeedActionButtons();
 	});
 
 	/**
@@ -56,63 +56,115 @@
 			} else {
 				btn.value = 'Testando...';
 			}
-
 			// O submit continua acontecendo normalmente.
 		});
 	}
 
 	/**
-	 * Configura os botões "Processar agora" na tela de Feeds.
+	 * Configura os botões de ação por feed na tela de Feeds.
 	 *
-	 * Estrutura HTML atual:
-	 * - Um <form> com hidden feeds_ia_action=run_feed_now,
-	 *   contendo um <button> simples.
+	 * Estrutura HTML atual (um único <form> envolvendo a tabela):
+	 * - Hidden global: <input type="hidden" name="feeds_ia_action" value="save_feeds">
+	 * - Hidden global: <input type="hidden" name="feed_id" id="feeds-ia-feed-id" value="">
+	 * - Em cada linha:
+	 *   <div class="feeds-ia-feed-actions">
+	 *       <button type="submit"
+	 *               class="button feeds-ia-btn-run-feed"
+	 *               data-feeds-ia-action="run_feed_now"
+	 *               data-feed-id="...">Processar agora</button>
+	 *       <button type="submit"
+	 *               class="button feeds-ia-btn-delete-feed"
+	 *               data-feeds-ia-action="delete_feed"
+	 *               data-feed-id="...">Remover</button>
+	 *   </div>
 	 *
 	 * Comportamento:
-	 * - Ao enviar o form, desabilita o botão e troca o texto
-	 *   para "Processando...", evitando múltiplos cliques.
+	 * - Ao clicar em "Processar agora":
+	 *   - Define feeds_ia_action = run_feed_now e feed_id = ID do feed.
+	 *   - Desabilita o botão, muda o texto para "Processando..." e envia o form.
+	 * - Ao clicar em "Remover":
+	 *   - Pede confirmação.
+	 *   - Define feeds_ia_action = delete_feed e feed_id = ID do feed.
+	 *   - Desabilita o botão, muda o texto para "Removendo..." e envia o form.
 	 */
-	function setupRunFeedNowButtons() {
+	function setupFeedActionButtons() {
 		var containers = document.querySelectorAll('.feeds-ia-feed-actions');
 		if (!containers.length) {
 			return;
 		}
 
 		containers.forEach(function (container) {
-			var form = container.querySelector('form[action=""], form');
+			var runBtn = container.querySelector('.feeds-ia-btn-run-feed');
+			var deleteBtn = container.querySelector('.feeds-ia-btn-delete-feed');
+
+			if (runBtn) {
+				attachFeedActionHandler(runBtn, 'Processando...', false);
+			}
+			if (deleteBtn) {
+				attachFeedActionHandler(deleteBtn, 'Removendo...', true);
+			}
+		});
+	}
+
+	/**
+	 * Anexa o handler de ação (processar/remover) a um botão de feed.
+	 *
+	 * @param {HTMLButtonElement|HTMLInputElement} btn
+	 * @param {string} loadingLabel Texto durante o processamento.
+	 * @param {boolean} askConfirm  Se deve pedir confirmação (para remover).
+	 */
+	function attachFeedActionHandler(btn, loadingLabel, askConfirm) {
+		btn.addEventListener('click', function (event) {
+			if (btn.disabled) {
+				return;
+			}
+
+			var action = btn.getAttribute('data-feeds-ia-action') || '';
+			var feedId = btn.getAttribute('data-feed-id') || '';
+
+			if (!action || !feedId) {
+				return;
+			}
+
+			if (askConfirm) {
+				var confirmed = window.confirm('Tem certeza de que deseja remover este feed?');
+				if (!confirmed) {
+					return;
+				}
+			}
+
+			var form = btn.closest('form');
 			if (!form) {
 				return;
 			}
 
-			// Confere se este form é de "run_feed_now".
-			var actionInput = form.querySelector('input[name="feeds_ia_action"][value="run_feed_now"]');
-			if (!actionInput) {
+			var actionInput = form.querySelector('input[name="feeds_ia_action"]');
+			var feedIdInput = form.querySelector('input[name="feed_id"]');
+
+			if (!actionInput || !feedIdInput) {
 				return;
 			}
 
-			var btn = form.querySelector('button[type="submit"]');
-			if (!btn) {
-				return;
+			// Não deixa o submit padrão ocorrer antes de configurarmos os campos.
+			event.preventDefault();
+
+			actionInput.value = action;
+			feedIdInput.value = feedId;
+
+			if (!btn.dataset.originalText) {
+				btn.dataset.originalText = btn.textContent || btn.value || '';
 			}
 
-			form.addEventListener('submit', function () {
-				if (btn.disabled) {
-					return;
-				}
+			btn.disabled = true;
+			btn.classList.add('feeds-ia-btn-loading');
 
-				if (!btn.dataset.originalText) {
-					btn.dataset.originalText = btn.textContent || btn.value || '';
-				}
+			if (btn.tagName.toLowerCase() === 'button') {
+				btn.textContent = loadingLabel;
+			} else {
+				btn.value = loadingLabel;
+			}
 
-				btn.disabled = true;
-				btn.classList.add('feeds-ia-btn-loading');
-
-				if (btn.tagName.toLowerCase() === 'button') {
-					btn.textContent = 'Processando...';
-				} else {
-					btn.value = 'Processando...';
-				}
-			});
+			form.submit();
 		});
 	}
 })();

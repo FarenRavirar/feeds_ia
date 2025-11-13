@@ -27,13 +27,38 @@ class Feeds_IA_Publisher {
 	 */
 	public static function create_post( array $feed_config, array $article, array $ai_result ) {
 		$feed_id        = isset( $feed_config['id'] ) ? sanitize_text_field( $feed_config['id'] ) : '';
+		$feed_name      = isset( $feed_config['name'] ) ? $feed_config['name'] : $feed_id;
 		$original_title = isset( $article['title'] ) ? wp_strip_all_tags( $article['title'] ) : '';
 		$original_link  = isset( $article['link'] ) ? esc_url_raw( $article['link'] ) : '';
 		$original_guid  = isset( $article['guid'] ) ? sanitize_text_field( $article['guid'] ) : '';
 
 		// Título final: prioriza IA, cai para o título original se vazio.
-		$title_ai = isset( $ai_result['title'] ) ? wp_strip_all_tags( $ai_result['title'] ) : '';
+		$title_ai   = isset( $ai_result['title'] ) ? wp_strip_all_tags( $ai_result['title'] ) : '';
 		$post_title = $title_ai ? $title_ai : $original_title;
+
+		// Sanidade: evita criar posts com texto reescrito muito curto em relação ao original.
+		if ( self::is_ai_content_too_short( $article, $ai_result ) ) {
+			$message = 'Texto gerado pela IA muito curto em relação ao conteúdo original. Post não criado.';
+			Feeds_IA_Logger::log(
+				array(
+					'feed_id'         => $feed_id,
+					'feed_name'       => $feed_name,
+					'title_original'  => $original_title,
+					'title_generated' => $post_title,
+					'status'          => 'error-ai-too-short',
+					'message'         => $message,
+					'post_id'         => null,
+				)
+			);
+
+			return new WP_Error(
+				'feeds_ia_ai_too_short',
+				__( 'Texto gerado pela IA muito curto em relação ao conteúdo original.', 'feeds-ia' )
+			);
+		}
+
+		// Slug encurtado, preservando o núcleo factual.
+		$post_slug = self::generate_slug( $post_title );
 
 		// Conteúdo final do post (HTML + crédito à fonte).
 		$post_content = self::build_post_content( $article, $ai_result );
@@ -66,6 +91,10 @@ class Feeds_IA_Publisher {
 			$postarr['post_category'] = array( $category_id );
 		}
 
+		if ( '' !== $post_slug ) {
+			$postarr['post_name'] = $post_slug;
+		}
+
 		// Insere post como rascunho.
 		$post_id = wp_insert_post( $postarr, true );
 
@@ -73,6 +102,7 @@ class Feeds_IA_Publisher {
 			Feeds_IA_Logger::log(
 				array(
 					'feed_id'         => $feed_id,
+					'feed_name'       => $feed_name,
 					'title_original'  => $original_title,
 					'title_generated' => $post_title,
 					'status'          => 'error-publish',
@@ -97,8 +127,12 @@ class Feeds_IA_Publisher {
 			update_post_meta( $post_id, '_feeds_ia_feed_id', $feed_id );
 		}
 
+		$summary_clean = '';
 		if ( isset( $ai_result['summary'] ) && is_string( $ai_result['summary'] ) ) {
-			update_post_meta( $post_id, '_feeds_ia_summary', wp_strip_all_tags( $ai_result['summary'] ) );
+			$summary_clean = wp_strip_all_tags( $ai_result['summary'] );
+			if ( '' !== $summary_clean ) {
+				update_post_meta( $post_id, '_feeds_ia_summary', $summary_clean );
+			}
 		}
 
 		if ( isset( $ai_result['model'] ) && is_string( $ai_result['model'] ) ) {
@@ -109,6 +143,27 @@ class Feeds_IA_Publisher {
 		$hash_source = $post_title . '|' . $original_link . '|' . $original_guid;
 		update_post_meta( $post_id, '_feeds_ia_hash', sha1( $hash_source ) );
 
+		// Integração com Yoast SEO (quando ativo).
+		if ( defined( 'WPSEO_VERSION' ) || class_exists( 'WPSEO_Meta' ) ) {
+
+			// Meta description: usa o summary gerado pela IA (ou fallback já tratado na classe de IA).
+			if ( '' !== $summary_clean ) {
+				update_post_meta( $post_id, '_yoast_wpseo_metadesc', $summary_clean );
+			}
+
+			// Frase-chave de foco derivada do título (sem criar fatos novos).
+			$focuskw = self::derive_focus_keyphrase_from_title( $post_title );
+			if ( '' !== $focuskw ) {
+				update_post_meta( $post_id, '_yoast_wpseo_focuskw', $focuskw );
+			}
+
+			// Título SEO encurtado, preservando o núcleo factual.
+			$seo_title = self::generate_seo_title( $post_title );
+			if ( '' !== $seo_title ) {
+				update_post_meta( $post_id, '_yoast_wpseo_title', $seo_title );
+			}
+		}
+
 		// Imagem destacada (se houver).
 		if ( ! empty( $article['image_url'] ) ) {
 			self::maybe_set_featured_image( $post_id, $article['image_url'] );
@@ -118,6 +173,7 @@ class Feeds_IA_Publisher {
 		Feeds_IA_Logger::log(
 			array(
 				'feed_id'         => $feed_id,
+				'feed_name'       => $feed_name,
 				'title_original'  => $original_title,
 				'title_generated' => $post_title,
 				'status'          => 'success',
@@ -239,5 +295,145 @@ class Feeds_IA_Publisher {
 		}
 
 		return (int) $result;
+	}
+
+	/**
+	 * Gera um slug encurtado a partir do título, preservando o núcleo factual.
+	 *
+	 * @param string $title Título do post.
+	 * @return string Slug sanitizado.
+	 */
+	protected static function generate_slug( $title ) {
+		$base = sanitize_title( $title );
+
+		if ( '' === $base ) {
+			return '';
+		}
+
+		$max_length = 70;
+
+		if ( strlen( $base ) <= $max_length ) {
+			return $base;
+		}
+
+		$parts     = explode( '-', $base );
+		$stopwords = array( 'de', 'da', 'do', 'das', 'dos', 'para', 'por', 'e', 'a', 'o', 'um', 'uma', 'no', 'na', 'nos', 'nas' );
+		$filtered  = array();
+
+		foreach ( $parts as $part ) {
+			if ( in_array( $part, $stopwords, true ) ) {
+				continue;
+			}
+			$filtered[] = $part;
+		}
+
+		$slug = implode( '-', $filtered );
+
+		if ( '' === $slug ) {
+			$slug = $base;
+		}
+
+		if ( strlen( $slug ) > $max_length ) {
+			$slug = substr( $slug, 0, $max_length );
+			$slug = rtrim( $slug, '-' );
+		}
+
+		return $slug;
+	}
+
+	/**
+	 * Gera um título SEO encurtado, com base no título original.
+	 *
+	 * @param string $title Título original.
+	 * @return string Título SEO.
+	 */
+	protected static function generate_seo_title( $title ) {
+		$title = trim( wp_strip_all_tags( (string) $title ) );
+
+		if ( '' === $title ) {
+			return '';
+		}
+
+		// Faixa recomendada aproximada: até ~60 caracteres.
+		$max_length = 60;
+
+		if ( mb_strlen( $title ) <= $max_length ) {
+			return $title;
+		}
+
+		$cut = mb_substr( $title, 0, $max_length );
+		// Evita cortar no meio de uma palavra.
+		$cut = preg_replace( '/\s+\S*$/u', '', $cut );
+
+		return trim( $cut );
+	}
+
+	/**
+	 * Deriva uma frase-chave de foco a partir do título, sem inventar informação.
+	 *
+	 * @param string $title Título do post.
+	 * @return string Frase-chave.
+	 */
+	protected static function derive_focus_keyphrase_from_title( $title ) {
+		$title = trim( wp_strip_all_tags( (string) $title ) );
+
+		if ( '' === $title ) {
+			return '';
+		}
+
+		// Usa as primeiras palavras do título como keyphrase.
+		$words = preg_split( '/\s+/', $title );
+		if ( ! is_array( $words ) ) {
+			return $title;
+		}
+
+		$max_words = 10;
+		if ( count( $words ) > $max_words ) {
+			$words = array_slice( $words, 0, $max_words );
+		}
+
+		return trim( implode( ' ', $words ) );
+	}
+
+	/**
+	 * Verifica se o conteúdo reescrito pela IA ficou muito curto
+	 * em relação ao conteúdo original.
+	 *
+	 * @param array $article   Artigo original pré-processado.
+	 * @param array $ai_result Saída da IA.
+	 * @return bool True se for considerado curto demais.
+	 */
+	protected static function is_ai_content_too_short( array $article, array $ai_result ) {
+		$original = isset( $article['content_text'] ) ? (string) $article['content_text'] : '';
+		$rewritten = isset( $ai_result['content'] ) ? (string) $ai_result['content'] : '';
+
+		$original = wp_strip_all_tags( $original );
+		$rewritten = wp_strip_all_tags( $rewritten );
+
+		$original = trim( preg_replace( '/\s+/', ' ', $original ) );
+		$rewritten = trim( preg_replace( '/\s+/', ' ', $rewritten ) );
+
+		if ( '' === $original || '' === $rewritten ) {
+			return false;
+		}
+
+		$orig_words = preg_split( '/\s+/', $original );
+		$rewr_words = preg_split( '/\s+/', $rewritten );
+
+		if ( ! is_array( $orig_words ) || ! is_array( $rewr_words ) ) {
+			return false;
+		}
+
+		$orig_count = count( $orig_words );
+		$rewr_count = count( $rewr_words );
+
+		if ( $orig_count <= 0 ) {
+			return false;
+		}
+
+		$ratio = $rewr_count / $orig_count;
+
+		// Limiar aproximado: menos de 60% do volume original é considerado curto demais.
+		return ( $ratio < 0.6 );
 	}
 }

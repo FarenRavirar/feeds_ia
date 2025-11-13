@@ -89,11 +89,15 @@ Regras editoriais obrigatórias:
 - NÃO invente informações, NÃO complete lacunas, NÃO especule.
 - Se algo não estiver claro no texto original, apenas não mencione, em vez de deduzir.
 - Não comente sobre o próprio processo de escrita, apenas apresente a notícia.
+- Preserve o MESMO CONJUNTO DE INFORMAÇÕES do texto original, com volume de texto equivalente:
+  - Se o original tiver vários parágrafos, devolva vários parágrafos.
+  - Não reduza a notícia a um único parágrafo curto ou a um “tweet”.
 
 Tarefa:
 - Reescreva o título e o corpo da notícia em português do Brasil, em terceira pessoa.
-- Produza um resumo curto (1–2 frases) para ser usado como descrição de busca (meta description).
-- OrganizE o corpo em parágrafos em HTML (<p>...</p>), sem títulos de seção.
+- Mantenha o nível de detalhe e de informações equivalente ao texto original.
+- Produza um resumo curto (1–2 frases) para ser usado como descrição de busca (meta description). O resumo deve ser objetivo, sem adicionar fatos que não estejam no texto.
+- Organize o corpo em parágrafos em HTML (<p>...</p>), sem títulos de seção.
 
 Formato de saída (OBRIGATÓRIO):
 Responda APENAS com um JSON válido, sem texto extra, sem explicações, sem markdown.
@@ -134,8 +138,8 @@ EOT;
 
 		// Monta URL do endpoint.
 		$endpoint = sprintf(
-	'%s%s:generateContent?key=%s',
-	rtrim( $this->base_url, '/' ) . '/',
+			'%s%s:generateContent?key=%s',
+			rtrim( $this->base_url, '/' ) . '/',
 			rawurlencode( $model ),
 			rawurlencode( $api_key )
 		);
@@ -241,6 +245,12 @@ EOT;
 			$content_out = self::plain_text_to_paragraphs( $content_out );
 		}
 
+		// Fallback de summary: se vier vazio, gera a partir do próprio conteúdo,
+		// sem adicionar fatos novos (apenas recorte do texto reescrito).
+		if ( '' === $summary_out && '' !== $content_out ) {
+			$summary_out = self::generate_summary_fallback( $content_out );
+		}
+
 		return array(
 			'title'   => $title_out,
 			'content' => $content_out,
@@ -278,8 +288,8 @@ Responda APENAS com um JSON válido no formato:
 EOT;
 
 		$endpoint = sprintf(
-	'%s%s:generateContent?key=%s',
-	rtrim( $this->base_url, '/' ) . '/',
+			'%s%s:generateContent?key=%s',
+			rtrim( $this->base_url, '/' ) . '/',
 			rawurlencode( $model ),
 			rawurlencode( $api_key )
 		);
@@ -413,6 +423,35 @@ EOT;
 		}
 
 		return implode( "\n\n", $parts );
+	}
+
+	/**
+	 * Gera um resumo de fallback a partir do conteúdo HTML,
+	 * respeitando o princípio de não inventar fatos.
+	 *
+	 * @param string $content_html Conteúdo em HTML.
+	 * @return string
+	 */
+	protected static function generate_summary_fallback( $content_html ) {
+		$text = wp_strip_all_tags( (string) $content_html );
+		$text = trim( preg_replace( '/\s+/', ' ', $text ) );
+
+		if ( '' === $text ) {
+			return '';
+		}
+
+		// Limite aproximado para meta description.
+		$max_length = 155;
+
+		if ( mb_strlen( $text ) <= $max_length ) {
+			return $text;
+		}
+
+		$cut = mb_substr( $text, 0, $max_length );
+		// Evita cortar no meio de uma palavra.
+		$cut = preg_replace( '/\s+\S*$/u', '', $cut );
+
+		return trim( $cut );
 	}
 
 	/**

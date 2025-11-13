@@ -70,8 +70,7 @@ if ( 'POST' === $_SERVER['REQUEST_METHOD'] && isset( $_POST['feeds_ia_feeds_nonc
 			}
 
 			Feeds_IA_Settings::save_feeds( $to_save );
-			$feeds = Feeds_IA_Settings::get_feeds();
-
+			$feeds      = Feeds_IA_Settings::get_feeds();
 			$notices[] = array(
 				'type'    => 'success',
 				'message' => 'Feeds salvos com sucesso.',
@@ -153,6 +152,7 @@ if ( 'POST' === $_SERVER['REQUEST_METHOD'] && isset( $_POST['feeds_ia_feeds_nonc
 	<form method="post" action="">
 		<?php wp_nonce_field( 'feeds_ia_save_feeds', 'feeds_ia_feeds_nonce' ); ?>
 		<input type="hidden" name="feeds_ia_action" value="save_feeds" />
+		<input type="hidden" name="feed_id" value="" id="feeds-ia-feed-id" />
 
 		<table class="widefat fixed striped feeds-ia-table-feeds">
 			<thead>
@@ -252,10 +252,10 @@ if ( 'POST' === $_SERVER['REQUEST_METHOD'] && isset( $_POST['feeds_ia_feeds_nonc
 							<td>
 								<select name="feeds[<?php echo esc_attr( $index ); ?>][mode]">
 									<option value="draft" <?php selected( $mode, 'draft' ); ?>>Rascunho</option>
-									<option value="publish" <?php selected( $mode, 'publish' ); ?>>Publicar (ignorado: sempre rascunho)</option>
+									<option value="publish" <?php selected( $mode, 'publish' ); ?>>Publicar (ignorado; todos os posts são salvos como rascunho.)</option>
 								</select>
 								<p class="description">
-									A publicação automática é desativada no código; todos os posts são salvos como rascunho.
+									Hoje todos os posts são salvos como rascunho.
 								</p>
 							</td>
 							<td>
@@ -266,23 +266,23 @@ if ( 'POST' === $_SERVER['REQUEST_METHOD'] && isset( $_POST['feeds_ia_feeds_nonc
 								<?php endif; ?>
 
 								<div class="feeds-ia-feed-actions">
-									<form method="post" action="" style="display:inline;">
-										<?php wp_nonce_field( 'feeds_ia_save_feeds', 'feeds_ia_feeds_nonce' ); ?>
-										<input type="hidden" name="feeds_ia_action" value="run_feed_now" />
-										<input type="hidden" name="feed_id" value="<?php echo esc_attr( $feed_id ); ?>" />
-										<button type="submit" class="button button-small">
-											Processar agora
-										</button>
-									</form>
+									<button
+										type="submit"
+										class="button button-small feeds-ia-btn-run-feed"
+										data-feeds-ia-action="run_feed_now"
+										data-feed-id="<?php echo esc_attr( $feed_id ); ?>"
+									>
+										Processar agora
+									</button>
 
-									<form method="post" action="" style="display:inline;margin-left:4px;">
-										<?php wp_nonce_field( 'feeds_ia_save_feeds', 'feeds_ia_feeds_nonce' ); ?>
-										<input type="hidden" name="feeds_ia_action" value="delete_feed" />
-										<input type="hidden" name="feed_id" value="<?php echo esc_attr( $feed_id ); ?>" />
-										<button type="submit" class="button button-small button-link-delete" onclick="return confirm('Remover este feed?');">
-											Remover
-										</button>
-									</form>
+									<button
+										type="submit"
+										class="button button-small button-link-delete feeds-ia-btn-delete-feed"
+										data-feeds-ia-action="delete_feed"
+										data-feed-id="<?php echo esc_attr( $feed_id ); ?>"
+									>
+										Remover
+									</button>
 								</div>
 							</td>
 						</tr>
@@ -355,23 +355,23 @@ if ( 'POST' === $_SERVER['REQUEST_METHOD'] && isset( $_POST['feeds_ia_feeds_nonc
 					<td>
 						<select name="feeds[new_1][mode]">
 							<option value="draft">Rascunho</option>
-							<option value="publish">Publicar (ignorado)</option>
+							<option value="publish">Publicar (ignorado; todos os posts são salvos como rascunho.)</option>
 						</select>
 					</td>
 					<td>
-						<input
-							type="hidden"
-							name="feeds[new_1][last_run]"
-							value=""
-						/>
 						<span>—</span>
 					</td>
 				</tr>
 			</tbody>
 		</table>
 
+		<p class="description">
+			Todos os posts criados a partir destes feeds serão salvos como <strong>rascunho</strong>.
+			Nenhum conteúdo é publicado automaticamente.
+		</p>
+
 		<p class="submit">
-			<button type="submit" class="button button-primary">
+			<button type="submit" class="button button-primary feeds-ia-btn-save-feeds">
 				Salvar feeds
 			</button>
 		</p>

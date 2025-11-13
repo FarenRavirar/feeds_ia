@@ -138,18 +138,20 @@ class Feeds_IA_Content_Processor {
 	 * @param string $html
 	 * @return string|null
 	 */
-	protected static function extract_image_from_html( $html ) {
-		if ( ! is_string( $html ) || '' === trim( $html ) ) {
-			return null;
-		}
-
-		// Usa regex simples para encontrar o primeiro <img ... src="...">
-		if ( preg_match( '/<img[^>]+src=["\']([^"\']+)["\'][^>]*>/i', $html, $matches ) ) {
-			if ( isset( $matches[1] ) && is_string( $matches[1] ) && '' !== trim( $matches[1] ) ) {
-				return $matches[1];
-			}
-		}
-
+protected static function extract_image_from_html( $html ) {
+	if ( ! is_string( $html ) || '' === trim( $html ) ) {
 		return null;
 	}
+
+	$matches = array(); // opcional, apenas para silenciar linter
+
+	if ( preg_match( '/<img[^>]+src=["\']([^"\']+)["\'][^>]*>/i', $html, $matches ) ) {
+		if ( isset( $matches[1] ) && is_string( $matches[1] ) && '' !== trim( $matches[1] ) ) {
+			return $matches[1];
+		}
+	}
+
+	return null;
+}
+
 }

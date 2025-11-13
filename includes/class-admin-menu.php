@@ -17,6 +17,7 @@ class Feeds_IA_Admin_Menu {
 	 */
 	public static function init() {
 		add_action( 'admin_menu', array( __CLASS__, 'register_menus' ) );
+		add_action( 'admin_enqueue_scripts', array( __CLASS__, 'enqueue_admin_assets' ) );
 	}
 
 	/**
@@ -122,6 +123,37 @@ class Feeds_IA_Admin_Menu {
 	 */
 	public static function render_logs() {
 		self::include_view( 'logs.php' );
+	}
+
+	/**
+	 * Enfileira assets administrativos apenas nas telas do plugin.
+	 */
+	public static function enqueue_admin_assets( $hook_suffix ) {
+		// Verifica se estamos em uma tela do plugin.
+		if ( strpos( $hook_suffix, 'feeds-ia' ) === false ) {
+			return;
+		}
+
+		if ( ! defined( 'FEEDS_IA_PLUGIN_URL' ) ) {
+			return;
+		}
+
+		$version = defined( 'FEEDS_IA_VERSION' ) ? FEEDS_IA_VERSION : '1.0.0';
+
+		wp_enqueue_style(
+			'feeds-ia-admin',
+			FEEDS_IA_PLUGIN_URL . 'assets/css/admin.css',
+			array(),
+			$version
+		);
+
+		wp_enqueue_script(
+			'feeds-ia-admin',
+			FEEDS_IA_PLUGIN_URL . 'assets/js/admin.js',
+			array( 'jquery' ),
+			$version,
+			true
+		);
 	}
 
 	/**

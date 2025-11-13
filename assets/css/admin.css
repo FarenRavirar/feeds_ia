@@ -147,6 +147,13 @@
 	}
 }
 
+/* Seção de ações dos logs */
+.feeds-ia-logs-actions {
+	margin-top: 16px;
+	padding-top: 16px;
+	border-top: 1px solid #ddd;
+}
+
 /* Animação do pseudo-spinner */
 @keyframes feeds-ia-spin {
 	from {
