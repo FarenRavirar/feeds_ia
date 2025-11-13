@@ -13,8 +13,6 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-
-
 if ( ! current_user_can( 'manage_options' ) ) {
 	return;
 }
@@ -26,15 +24,33 @@ $feeds = Feeds_IA_Settings::get_feeds();
 
 // Tratamento de POST.
 if ( 'POST' === $_SERVER['REQUEST_METHOD'] && isset( $_POST['feeds_ia_feeds_nonce'] ) ) {
+
 	if ( ! wp_verify_nonce( sanitize_text_field( wp_unslash( $_POST['feeds_ia_feeds_nonce'] ) ), 'feeds_ia_save_feeds' ) ) {
+
 		$notices[] = array(
 			'type'    => 'error',
 			'message' => 'Falha na validação do formulário. Tente novamente.',
 		);
+
 	} else {
-		$action = isset( $_POST['feeds_ia_action'] ) ? sanitize_key( wp_unslash( $_POST['feeds_ia_action'] ) ) : 'save_feeds';
+
+		// Descobre qual botão foi clicado sem depender de JavaScript.
+		$action  = 'save_feeds';
+		$feed_id = '';
+
+		if ( isset( $_POST['run_feed_now'] ) ) {
+			$action  = 'run_feed_now';
+			$feed_id = sanitize_text_field( wp_unslash( $_POST['run_feed_now'] ) );
+		} elseif ( isset( $_POST['delete_feed'] ) ) {
+			$action  = 'delete_feed';
+			$feed_id = sanitize_text_field( wp_unslash( $_POST['delete_feed'] ) );
+		} elseif ( isset( $_POST['feeds_ia_action'] ) ) {
+			// Mantém compatibilidade se algum código futuro ainda usar feeds_ia_action.
+			$action = sanitize_key( wp_unslash( $_POST['feeds_ia_action'] ) );
+		}
 
 		if ( 'save_feeds' === $action ) {
+
 			$posted_feeds = isset( $_POST['feeds'] ) && is_array( $_POST['feeds'] ) ? $_POST['feeds'] : array();
 			$to_save      = array();
 
@@ -75,8 +91,8 @@ if ( 'POST' === $_SERVER['REQUEST_METHOD'] && isset( $_POST['feeds_ia_feeds_nonc
 				'type'    => 'success',
 				'message' => 'Feeds salvos com sucesso.',
 			);
+
 		} elseif ( 'run_feed_now' === $action ) {
-			$feed_id = isset( $_POST['feed_id'] ) ? sanitize_text_field( wp_unslash( $_POST['feed_id'] ) ) : '';
 
 			if ( '' === $feed_id ) {
 				$notices[] = array(
@@ -92,17 +108,20 @@ if ( 'POST' === $_SERVER['REQUEST_METHOD'] && isset( $_POST['feeds_ia_feeds_nonc
 						'message' => 'Feed não encontrado para processamento imediato.',
 					);
 				} else {
+					// Executa o pipeline completo de um único feed.
 					Feeds_IA_Cron::run_for_feed( $feed_config );
+
 					$notices[] = array(
 						'type'    => 'success',
 						'message' => 'Processamento imediato disparado para o feed selecionado. Novos itens serão criados como rascunho.',
 					);
-					// Atualiza feeds após possível atualização de last_run dentro do fluxo.
+
+					// Atualiza feeds após possível atualização de last_run.
 					$feeds = Feeds_IA_Settings::get_feeds();
 				}
 			}
+
 		} elseif ( 'delete_feed' === $action ) {
-			$feed_id = isset( $_POST['feed_id'] ) ? sanitize_text_field( wp_unslash( $_POST['feed_id'] ) ) : '';
 
 			if ( '' === $feed_id ) {
 				$notices[] = array(
@@ -151,8 +170,6 @@ if ( 'POST' === $_SERVER['REQUEST_METHOD'] && isset( $_POST['feeds_ia_feeds_nonc
 
 	<form method="post" action="">
 		<?php wp_nonce_field( 'feeds_ia_save_feeds', 'feeds_ia_feeds_nonce' ); ?>
-		<input type="hidden" name="feeds_ia_action" value="save_feeds" />
-		<input type="hidden" name="feed_id" value="" id="feeds-ia-feed-id" />
 
 		<table class="widefat fixed striped feeds-ia-table-feeds">
 			<thead>
@@ -268,18 +285,19 @@ if ( 'POST' === $_SERVER['REQUEST_METHOD'] && isset( $_POST['feeds_ia_feeds_nonc
 								<div class="feeds-ia-feed-actions">
 									<button
 										type="submit"
-										class="button button-small feeds-ia-btn-run-feed"
-										data-feeds-ia-action="run_feed_now"
-										data-feed-id="<?php echo esc_attr( $feed_id ); ?>"
+										class="button button-small"
+										name="run_feed_now"
+										value="<?php echo esc_attr( $feed_id ); ?>"
 									>
 										Processar agora
 									</button>
 
 									<button
 										type="submit"
-										class="button button-small button-link-delete feeds-ia-btn-delete-feed"
-										data-feeds-ia-action="delete_feed"
-										data-feed-id="<?php echo esc_attr( $feed_id ); ?>"
+										class="button button-small button-link-delete"
+										name="delete_feed"
+										value="<?php echo esc_attr( $feed_id ); ?>"
+										onclick="return confirm('Tem certeza de que deseja remover este feed?');"
 									>
 										Remover
 									</button>
@@ -371,7 +389,12 @@ if ( 'POST' === $_SERVER['REQUEST_METHOD'] && isset( $_POST['feeds_ia_feeds_nonc
 		</p>
 
 		<p class="submit">
-			<button type="submit" class="button button-primary feeds-ia-btn-save-feeds">
+			<button
+				type="submit"
+				class="button button-primary"
+				name="feeds_ia_action"
+				value="save_feeds"
+			>
 				Salvar feeds
 			</button>
 		</p>

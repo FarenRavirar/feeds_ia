@@ -27,7 +27,6 @@ class Feeds_IA_Publisher {
 	 */
 	public static function create_post( array $feed_config, array $article, array $ai_result ) {
 		$feed_id        = isset( $feed_config['id'] ) ? sanitize_text_field( $feed_config['id'] ) : '';
-		$feed_name      = isset( $feed_config['name'] ) ? $feed_config['name'] : $feed_id;
 		$original_title = isset( $article['title'] ) ? wp_strip_all_tags( $article['title'] ) : '';
 		$original_link  = isset( $article['link'] ) ? esc_url_raw( $article['link'] ) : '';
 		$original_guid  = isset( $article['guid'] ) ? sanitize_text_field( $article['guid'] ) : '';
@@ -42,7 +41,6 @@ class Feeds_IA_Publisher {
 			Feeds_IA_Logger::log(
 				array(
 					'feed_id'         => $feed_id,
-					'feed_name'       => $feed_name,
 					'title_original'  => $original_title,
 					'title_generated' => $post_title,
 					'status'          => 'error-ai-too-short',
@@ -102,7 +100,6 @@ class Feeds_IA_Publisher {
 			Feeds_IA_Logger::log(
 				array(
 					'feed_id'         => $feed_id,
-					'feed_name'       => $feed_name,
 					'title_original'  => $original_title,
 					'title_generated' => $post_title,
 					'status'          => 'error-publish',
@@ -173,7 +170,6 @@ class Feeds_IA_Publisher {
 		Feeds_IA_Logger::log(
 			array(
 				'feed_id'         => $feed_id,
-				'feed_name'       => $feed_name,
 				'title_original'  => $original_title,
 				'title_generated' => $post_title,
 				'status'          => 'success',

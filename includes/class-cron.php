@@ -156,7 +156,7 @@ class Feeds_IA_Cron {
 
 			self::run_for_feed( $feed, $now );
 
-			$feed['last_run'] = $now;
+			$feed['last_run']      = $now;
 			$feeds_atualizados[] = $feed;
 		}
 
@@ -202,6 +202,7 @@ class Feeds_IA_Cron {
 	 * - Pré-processa conteúdo.
 	 * - Chama IA.
 	 * - Cria posts em rascunho.
+	 * - Registra logs de erro e de resumo.
 	 *
 	 * @param array $feed_config Configuração do feed.
 	 * @param int   $now_ts      Timestamp atual (para logs, se necessário).
@@ -217,11 +218,11 @@ class Feeds_IA_Cron {
 
 		$feed_config = Feeds_IA_Settings::sanitize_feed_config( $feed_config );
 		$feed_id     = isset( $feed_config['id'] ) ? sanitize_text_field( $feed_config['id'] ) : '';
+		$feed_name   = isset( $feed_config['name'] ) ? wp_strip_all_tags( $feed_config['name'] ) : '';
 
-		$feed_name = isset( $feed_config['name'] ) ? $feed_config['name'] : $feed_id;
-
-		// Registra início da execução
-		Feeds_IA_Logger::log_feed_start( $feed_config, 'manual' );
+		if ( null === $now_ts ) {
+			$now_ts = current_time( 'timestamp' );
+		}
 
 		try {
 			$items = Feeds_IA_Feeds_Manager::get_new_items_for_feed( $feed_config );
@@ -229,7 +230,6 @@ class Feeds_IA_Cron {
 			Feeds_IA_Logger::log(
 				array(
 					'feed_id'         => $feed_id,
-					'feed_name'       => $feed_name,
 					'title_original'  => '',
 					'title_generated' => '',
 					'status'          => 'error-feed',
@@ -241,35 +241,47 @@ class Feeds_IA_Cron {
 		}
 
 		if ( empty( $items ) || ! is_array( $items ) ) {
-			// Registra resultado mesmo se não houver itens
-			Feeds_IA_Logger::log_feed_result( $feed_config, 0, 0, 0 );
+			// Log informativo quando não há itens novos.
+			Feeds_IA_Logger::log(
+				array(
+					'feed_id'         => $feed_id,
+					'title_original'  => '',
+					'title_generated' => '',
+					'status'          => 'no-items',
+					'message'         => 'Nenhum item novo encontrado para este feed.',
+					'post_id'         => null,
+				)
+			);
 			return;
 		}
 
-		$items_found = count( $items );
-		$posts_created = 0;
-		$errors = 0;
+		$total_items     = count( $items );
+		$created_count   = 0;
+		$ai_error_count  = 0;
+		$pub_error_count = 0;
 
 		foreach ( $items as $item ) {
 			// 1) Pré-processamento.
-			$article = Feeds_IA_Content_Processor::process_item( $item );
+			$article         = Feeds_IA_Content_Processor::process_item( $item );
+			$original_title  = isset( $article['title'] ) ? wp_strip_all_tags( $article['title'] ) : '';
 
 			// 2) Reescrita com IA.
 			$ai_result = Feeds_IA_AI::rewrite_article( $article );
 
 			if ( is_wp_error( $ai_result ) ) {
+				$ai_error_count++;
+
 				Feeds_IA_Logger::log(
 					array(
 						'feed_id'         => $feed_id,
-						'feed_name'       => $feed_name,
-						'title_original'  => isset( $article['title'] ) ? wp_strip_all_tags( $article['title'] ) : '',
+						'title_original'  => $original_title,
 						'title_generated' => '',
 						'status'          => 'error-ai',
 						'message'         => $ai_result->get_error_message(),
 						'post_id'         => null,
 					)
 				);
-				$errors++;
+
 				continue;
 			}
 
@@ -277,15 +289,33 @@ class Feeds_IA_Cron {
 			$post_id = Feeds_IA_Publisher::create_post( $feed_config, $article, $ai_result );
 
 			if ( is_wp_error( $post_id ) ) {
-				// Log já feito dentro de create_post; não repete aqui.
-				$errors++;
+				// create_post já registra log com status error-publish.
+				$pub_error_count++;
 				continue;
-			} else {
-				$posts_created++;
 			}
+
+			$created_count++;
 		}
 
-		// Registra resultado final da execução
-		Feeds_IA_Logger::log_feed_result( $feed_config, $items_found, $posts_created, $errors );
+		// Log de resumo do processamento do feed.
+		$summary_message = sprintf(
+			'Processamento concluído para o feed "%1$s": %2$d itens novos, %3$d rascunhos criados, %4$d erros de IA, %5$d erros de publicação.',
+			$feed_name ? $feed_name : $feed_id,
+			$total_items,
+			$created_count,
+			$ai_error_count,
+			$pub_error_count
+		);
+
+		Feeds_IA_Logger::log(
+			array(
+				'feed_id'         => $feed_id,
+				'title_original'  => '',
+				'title_generated' => '',
+				'status'          => 'summary',
+				'message'         => $summary_message,
+				'post_id'         => null,
+			)
+		);
 	}
 }
