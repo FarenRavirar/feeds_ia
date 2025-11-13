@@ -1,3 +1,4 @@
+
 # feeds_agent.md  
 Guia técnico do projeto **feeds_ia** – Plugin de feeds com IA para WordPress (Artifício RPG)
 
@@ -5,26 +6,26 @@ Guia técnico do projeto **feeds_ia** – Plugin de feeds com IA para WordPress 
 
 ## 1. Contexto e objetivo
 
-O projeto **feeds_ia** define um plugin para WordPress cujo objetivo é:
+O projeto **feeds_ia** implementa um plugin para WordPress voltado a **RPG de mesa**, com foco em:
 
-- Ler **feeds RSS** de sites relacionados a **RPG de mesa** (notícias, anúncios de suplementos, cenários, financiamentos coletivos, Unearthed Arcana, playtests, eventos etc.).
-- Processar o conteúdo usando **IA (Google Gemini)** para gerar versões reescritas:
+- Ler **feeds RSS** de sites de RPG de mesa (notícias, anúncios de suplementos, cenários, financiamentos coletivos, Unearthed Arcana, playtests, eventos etc.).
+- Processar o conteúdo com **IA (Google Gemini)** para gerar versões reescritas:
   - em **português do Brasil**,
   - em **terceira pessoa**,
-  - com **vocabulário típico de RPG de mesa**,
-  - com foco informativo (formato notícia / nota), não análise longa.
-- Criar **posts em rascunho** no WordPress, com:
-  - título reescrito,
-  - texto reestruturado,
-  - metadados de rastreio da fonte original,
-  - possibilidade de imagem destacada derivada do feed.
+  - com **vocabulário típico de RPG de mesa**.
+- Criar **posts em rascunho** no WordPress contendo:
+  - título reescrito;
+  - texto reestruturado, preservando o volume de informação do original;
+  - resumo curto para SEO (meta description);
+  - metadados que ligam o rascunho à fonte original;
+  - tentativa de definição de imagem destacada, quando o feed fornece imagem.
 
-O plugin **nunca publica automaticamente**. Toda saída é salva como **rascunho** para revisão editorial no Artifício RPG.
+O plugin **nunca publica automaticamente**. Toda saída é salva como **rascunho** para revisão editorial manual no Artifício RPG.
 
 Este documento é o **contrato de referência** para:
 
-- Desenvolvedores humanos que mantêm o plugin.
-- Agentes de IA responsáveis por implementar, refatorar, depurar ou estender o **feeds_ia**.
+- desenvolvedores humanos que mantêm o plugin;
+- agentes de IA que implementam, refatoram, depuram ou estendem o **feeds_ia**.
 
 Qualquer alteração relevante de comportamento deve ser refletida aqui.
 
@@ -32,17 +33,17 @@ Qualquer alteração relevante de comportamento deve ser refletida aqui.
 
 ## 2. Princípios editoriais (invariantes obrigatórios)
 
-Estas regras são estruturais e não podem ser violadas por código, por prompts nem por refatorações.
+As regras abaixo são estruturais e não podem ser violadas por código, prompts ou refatorações.
 
 ### 2.1. Sem invenção de fatos
 
 - Não criar fatos novos.
 - Não alterar:
-  - datas,
-  - valores numéricos,
-  - nomes de pessoas,
-  - nomes de sistemas de RPG,
-  - nomes de suplementos, cenários, campanhas,
+  - datas;
+  - valores numéricos;
+  - nomes de pessoas;
+  - nomes de sistemas de RPG;
+  - nomes de suplementos, cenários, campanhas;
   - nomes de editoras, autores, marcas ou linhas de produto.
 - Não inventar rumores, bastidores, opiniões ou leituras “entre linhas”.
 
@@ -52,112 +53,119 @@ Se o texto original for vago, a saída deve permanecer vaga na mesma medida, sem
 
 - A tarefa da IA é **paráfrase** e **organização**, não criação livre.
 - Obrigatório:
-  - manter o conteúdo factual idêntico,
-  - deixar o texto mais claro quando possível,
-  - reorganizar parágrafos quando isso ajuda a leitura.
+  - manter o conteúdo factual idêntico;
+  - preservar o **nível de detalhe** do texto original;
+  - reorganizar parágrafos apenas quando isso ajudar a leitura;
+  - reescrever em português com clareza.
 - Não permitido:
-  - extrapolar contexto,
-  - adicionar “explicações” que não estejam na fonte,
-  - transformar nota simples em artigo opinativo.
+  - transformar uma matéria com vários parágrafos em um texto muito curto;
+  - resumir a notícia a um “tweet” ou nota seca, se o original traz mais informação;
+  - extrapolar contexto ou adicionar explicações que não constam na fonte.
+
+Regra prática para o modelo:  
+> manter um número aproximado de parágrafos e de informações equivalente ao texto original; se o original tiver 5–6 parágrafos, a versão reescrita também deve ter múltiplos parágrafos com o mesmo conteúdo factual.
 
 ### 2.3. Idioma sempre em português do Brasil
 
-- Toda saída da IA deve ser **PT-BR**.
-- Quando o texto original estiver em inglês ou outro idioma:
-  - o resultado é uma **paráfrase em português**, fiel ao conteúdo,
-  - não é uma tradução livre, nem adaptação criativa.
-- Evitar misturar inglês quando houver termo consolidado em português:
-  - “livro básico” (não apenas “core book”),
-  - “suplemento”, “cenário”, “mesa”, “campanha”, “financiamento coletivo”, “RPG de mesa”.
+- Toda saída da IA deve ser **português do Brasil**.
+- Quando o texto original estiver em outro idioma:
+  - o resultado é uma **paráfrase em português**, fiel ao conteúdo;
+  - não é tradução livre nem adaptação criativa.
+- Evitar misturar inglês quando existir termo consolidado em português:
+  - “livro básico”, “suplemento”, “cenário”, “campanha”, “RPG de mesa”, “financiamento coletivo”.
 
 ### 2.4. Vocabulário de RPG de mesa
 
-- Preferir termos próprios do campo de RPG de mesa:
+- Preferir termos próprios de RPG de mesa:
   - “sistema”, “jogo”, “cenário”, “suplemento”, “livro básico”, “classe”, “subclasse”, “one-shot”, “campanha”, “sessão”, “playtest”, “Unearthed Arcana”, “ambientação” etc.
-- Evitar diluir o contexto em termos genéricos (“produto de entretenimento” em vez de “suplemento de RPG”).
+- Evitar termos genéricos que apagam o contexto (“produto de entretenimento”, “jogo de fantasia” sem especificar que é RPG, quando a fonte for clara).
 
 ### 2.5. Crédito à fonte
 
-- Cada post deve:
-  - guardar a URL original em metadados,
+- Cada rascunho criado deve:
+  - guardar a URL original em metadados;
   - exibir um parágrafo final de fonte, por exemplo:
 
     ```html
     <p><em>Fonte original: <a href="URL_ORIGINAL">URL_ORIGINAL</a></em></p>
     ```
 
-- O texto não deve ocultar a origem nem se apropriar indevidamente do conteúdo.
+- O texto não pode ocultar a origem nem se apropriar do conteúdo como se fosse inédito.
 
 ### 2.6. Modo de publicação (sempre rascunho)
 
 - **Regra fixa:** todo post criado pelo plugin é salvo como **rascunho**:
-  - `post_status = 'draft'`.
-- Mesmo que exista, na tela de feeds, um campo “Modo de publicação”:
-  - o valor `publish` deve ser **ignorado** pela lógica interna,
-  - a decisão editorial final é sempre humana, via painel do WordPress.
+
+  ```php
+  'post_status' => 'draft';
+````
+
+* Mesmo que exista um campo “Modo de publicação” na tela de feeds:
+
+  * o valor `publish` deve ser ignorado pela lógica interna;
+  * a decisão final de publicar é sempre humana, via painel do WordPress.
 
 ### 2.7. Estilo de texto
 
-- Narração em terceira pessoa.
-- Tom informativo e objetivo, adequado a notas/notícias.
-- Sem emoção explícita e sem opinião não presente na fonte.
+* Narração em terceira pessoa.
+* Tom informativo e objetivo, adequado a notas/notícias.
+* Sem emoção explícita e sem opinião não presente na fonte.
 
 ---
 
-## 3. Escopo funcional atual
+## 3. Escopo funcional
 
-### 3.1. O que o plugin faz
+### 3.1. O que o plugin faz hoje
 
-- Cadastro de múltiplos **feeds RSS** com:
-  - nome interno,
-  - URL RSS,
-  - categoria de destino,
-  - status (ativo/inativo),
-  - frequência em minutos,
-  - limite de itens por execução.
-- Leitura periódica de feeds via `wp_cron`.
-- Detecção de itens novos por GUID/link/combinação.
-- Pré-processamento de conteúdo:
-  - limpeza de HTML,
-  - extração de texto,
-  - extração de imagem principal.
-- Integração com **Google Gemini**:
-  - envio do conteúdo bruto + instruções rígidas,
-  - retorno no formato JSON (`title`, `content`, `summary`).
-- Criação de posts:
-  - tipo `post`,
-  - status **sempre** `draft`,
-  - conteúdo em HTML com bloco final de fonte,
-  - metadados de rastreio da origem.
-- Registro de **logs** em opção dedicada (`feeds_ia_logs`) com limite de histórico.
-- Dashboard administrativo com:
-  - contagem de feeds ativos/inativos,
-  - contagem de rascunhos criados,
-  - execuções recentes do cron,
-  - rascunhos recentes criados pelo plugin.
-- Tela de **agendamentos** com:
-  - associação de feeds a horários fixos (HH:MM, 24h),
-  - seleção de dias da semana em português,
-  - ativação/desativação de cada agendamento.
-- Tela de **logs** com filtros por feed, status e período.
-- Tela de **configuração de IA** com:
-  - API key,
-  - modelo,
-  - temperatura,
-  - prompt base,
-  - botão “Testar conexão com IA”.
-- Tela de **configuração de feeds** com:
-  - cadastro/edição/remoção,
-  - botão “Processar agora” por feed.
-- Desinstalação (`uninstall.php`) removendo:
-  - options `feeds_ia_*`,
-  - metadados `_feeds_ia_*` anexados a posts.
+* Cadastro de múltiplos **feeds RSS** com:
 
-### 3.2. Fora de escopo atual
+  * nome interno;
+  * URL RSS;
+  * categoria de destino;
+  * status (ativo/inativo);
+  * frequência em minutos;
+  * limite de itens por execução.
+* Leitura periódica de feeds via `wp_cron`.
+* Detecção de itens novos por GUID/link/combinação.
+* Pré-processamento de conteúdo:
 
-- Publicação automática (`post_status = 'publish'`).
-- SEO avançado (ações diretas em plugins de SEO).
-- Integração com AdSense ou com redes de anúncios.
+  * limpeza de HTML;
+  * extração de texto;
+  * extração de imagem principal quando disponível.
+* Integração com **Google Gemini**:
+
+  * envio do conteúdo bruto + instruções editoriais rígidas;
+  * retorno em JSON (`title`, `content`, `summary`).
+* Criação de posts:
+
+  * tipo `post`;
+  * status sempre `draft`;
+  * conteúdo em HTML com parágrafo de fonte;
+  * metadados `_feeds_ia_*` com origem da notícia.
+* Registro de **logs** em option dedicada (`feeds_ia_logs`).
+* Dashboard administrativo com resumo (feeds, execuções, rascunhos).
+* Tela de agendamentos por horário/dia.
+* Tela de IA & Prompt com botão de teste de conexão.
+* Tela de feeds com botão “Processar agora”.
+
+### 3.2. O que ainda não está implementado ou está parcial
+
+* Integração explícita com **Yoast SEO** (ou plugin equivalente) para:
+
+  * popular **meta description** com o `summary` gerado;
+  * sugerir/atribuir **frase-chave de foco** com base no título;
+  * ajustar campo **SEO title** dentro de limites de tamanho recomendados sem perder precisão factual;
+  * respeitar tamanho recomendável de **slug** (encurtar slug muito longo, sem cortar de forma enganosa).
+* Tratamento mais robusto de **imagem destacada**:
+
+  * suportar feeds que usam `<media:content>`, `<enclosure>` ou outras estruturas além de `<img>`;
+  * logar explicitamente quando não for possível obter imagem.
+
+### 3.3. Fora de escopo neste momento
+
+* Publicação automática (`post_status = 'publish'`).
+* Criação de artigos longos de análise (modelo “5 capítulos”) – o plugin é voltado a notas/notícias.
+* Monetização (AdSense, afiliados).
 
 ---
 
@@ -165,727 +173,515 @@ Se o texto original for vago, a saída deve permanecer vaga na mesma medida, sem
 
 ```text
 feeds_ia/
-├── feeds_ia.php                        # Arquivo principal do plugin
+├── feeds_ia.php                        # arquivo principal do plugin
 ├── includes/
-│   ├── class-loader.php                # Registro/autoload de classes do plugin
-│   ├── class-admin-menu.php            # Menus e submenus no painel WP
-│   ├── class-settings.php              # Configurações (feeds, IA, gerais)
-│   ├── class-feeds-manager.php         # Leitura e normalização de RSS
-│   ├── class-content-processor.php     # Limpeza e preparação do conteúdo
-│   ├── class-ai-interface.php          # Interface e fachada para provedores de IA
-│   ├── class-ai-gemini.php             # Provedor de IA (Google Gemini)
-│   ├── class-publisher.php             # Criação de posts e metadados
-│   ├── class-cron.php                  # Agendamentos via wp_cron
-│   ├── class-logger.php                # Logs e consulta de logs
-│   ├── class-stats.php                 # Estatísticas para dashboard
-│   └── class-schedules.php             # Agendamentos por horário/dia
+│   ├── class-loader.php                # registro/autoload de classes
+│   ├── class-admin-menu.php            # menus e submenus no painel
+│   ├── class-settings.php              # opções (feeds, IA, gerais)
+│   ├── class-feeds-manager.php         # leitura e normalização de RSS
+│   ├── class-content-processor.php     # limpeza e preparação de conteúdo
+│   ├── class-ai-interface.php          # interface/fachada para provedores de IA
+│   ├── class-ai-gemini.php             # integração com Google Gemini
+│   ├── class-publisher.php             # criação de posts e metadados
+│   ├── class-cron.php                  # rotinas de wp_cron
+│   ├── class-logger.php                # logs
+│   ├── class-stats.php                 # estatísticas para dashboard
+│   └── class-schedules.php             # agendamentos por horário/dia
 ├── admin/
 │   ├── views/
-│   │   ├── dashboard.php               # Painel de resumo (cards, execuções, rascunhos)
-│   │   ├── settings-feeds.php          # Tela de feeds (cadastro, processar agora)
-│   │   ├── settings-ai.php             # Tela de IA (config + teste de conexão)
-│   │   ├── schedules.php               # Tela de agendamentos (horário, dias, status)
-│   │   └── logs.php                    # Tela de logs (filtros, listagem)
-│   └── index.php                       # Placeholder (segurança)
+│   │   ├── dashboard.php               # painel de resumo
+│   │   ├── settings-feeds.php          # tela de feeds
+│   │   ├── settings-ai.php             # tela de IA & prompt
+│   │   ├── schedules.php               # tela de agendamentos
+│   │   └── logs.php                    # tela de logs
+│   └── index.php                       # placeholder
 ├── assets/
 │   ├── css/
-│   │   └── admin.css                   # Estilos do painel (cards, tabelas, filtros)
+│   │   └── admin.css                   # estilos do painel
 │   └── js/
-│       └── admin.js                    # Scripts do painel (feedback de botões)
-└── uninstall.php                       # Limpeza de options e metadados na remoção
-````
+│       └── admin.js                    # scripts do painel
+└── uninstall.php                       # remoção de options/metadados
+```
 
 ---
 
 ## 5. Componentes principais e comportamento
 
-### 5.1. Núcleo do plugin – `feeds_ia.php` + `class-loader.php`
+### 5.1. Núcleo – `feeds_ia.php` e `class-loader.php`
 
-**feeds_ia.php**
+* `feeds_ia.php`:
 
-* Declara o cabeçalho do plugin.
-* Define constantes:
+  * declara o plugin;
+  * define constantes;
+  * inclui `class-loader.php`;
+  * registra hooks de ativação/desativação;
+  * chama `Feeds_IA_Loader` em `plugins_loaded`.
 
-  * `FEEDS_IA_VERSION`
-  * `FEEDS_IA_PLUGIN_DIR`
-  * `FEEDS_IA_PLUGIN_URL`
-* Inclui `includes/class-loader.php`.
-* Registra hooks:
+* `class-loader.php`:
 
-  * `register_activation_hook()` → registra cron e inicializa estruturas necessárias.
-  * `register_deactivation_hook()` → limpa cron, sem apagar dados.
-* Inicializa o plugin em `plugins_loaded`, delegando para `Feeds_IA_Loader`.
-
-**class-loader.php**
-
-* Responsável por carregar as classes do plugin.
-* Garante que classes como:
-
-  * `Feeds_IA_Admin_Menu`,
-  * `Feeds_IA_Settings`,
-  * `Feeds_IA_Cron`,
-  * `Feeds_IA_Logger`,
-  * `Feeds_IA_Stats`,
-  * `Feeds_IA_Schedules`
-    sejam carregadas antes de uso.
-* Pode implementar autoloader por convenção (por exemplo, `Feeds_IA_Algo` → `includes/class-algo.php`).
-
----
+  * carrega as classes do plugin por convenção;
+  * garante que classes como `Feeds_IA_Admin_Menu`, `Feeds_IA_Cron`, `Feeds_IA_Stats`, `Feeds_IA_Schedules` estejam disponíveis.
 
 ### 5.2. Administração – `class-admin-menu.php` + views
 
-**Menus e submenus**
+Submenus em “Feeds IA”:
 
-* Cria menu principal “Feeds IA” no painel.
-* Submenus esperados:
+1. **Dashboard** → `dashboard.php`
+   Resumo de feeds, execuções e rascunhos recentes.
 
-  * **Dashboard** → `admin/views/dashboard.php`
-  * **Feeds** → `admin/views/settings-feeds.php`
-  * **IA & Prompt** → `admin/views/settings-ai.php`
-  * **Agendamentos** → `admin/views/schedules.php`
-  * **Logs** → `admin/views/logs.php`
+2. **Feeds** → `settings-feeds.php`
+   Cadastro de feeds, configuração de frequência, itens por execução, botão “Processar agora”.
 
-**Assets de administração**
+3. **IA & Prompt** → `settings-ai.php`
+   Configuração de API key, modelo, temperatura e prompt base adicional. Botão “Testar conexão com IA”.
 
-* Em `admin_enqueue_scripts`, enfileirar:
+4. **Agendamentos** → `schedules.php`
+   Associa feeds a horários e dias da semana (domingo a sábado, rótulos em português, formato 24h).
 
-  * `assets/css/admin.css`
-  * `assets/js/admin.js`
-* Carregar apenas em telas do plugin (por id da tela ou `$_GET['page']`).
+5. **Logs** → `logs.php`
+   Filtros + tabela de logs.
 
----
+**Assets administrativos**
+
+* `admin.css` e `admin.js` são enfileirados somente nas telas do plugin, via `admin_enqueue_scripts`.
 
 ### 5.3. Configurações – `class-settings.php`
 
-**Options principais**
+Options:
 
-* `feeds_ia_feeds`
-  Estrutura: lista de feeds cadastrados.
+* `feeds_ia_feeds` – lista de feeds.
 
-  Cada feed contém:
+  Estrutura de cada feed:
 
   ```php
   [
-    'id'            => string,  // ID interno estável
-    'name'          => string,  // Nome interno, para exibição
-    'url'           => string,  // URL RSS
-    'category'      => int,     // ID da categoria WP
+    'id'            => string,
+    'name'          => string,
+    'url'           => string,
+    'category'      => int,
     'status'        => 'active'|'inactive',
-    'frequency'     => int,     // minutos entre execuções (caso cron por frequência esteja ativo)
-    'items_per_run' => int,     // limite de itens por execução
-    'mode'          => string,  // 'draft'|'publish' (mas lógica interna força 'draft')
-    'last_run'      => int|null // timestamp da última execução
+    'frequency'     => int,      // minutos
+    'items_per_run' => int,
+    'mode'          => 'draft'|'publish', // mas a publicação sempre força 'draft'
+    'last_run'      => int|null,
   ]
   ```
 
-* `feeds_ia_ai_settings`
-  Estrutura mínima:
+* `feeds_ia_ai_settings` – configurações de IA:
 
   ```php
   [
     'api_key'     => string,
-    'model'       => string, // ex.: 'gemini-1.5-flash'
-    'temperature' => float,  // ex.: 0.2
-    'base_prompt' => string  // ajustes finos de tom (sem quebrar invariantes)
+    'model'       => string,
+    'temperature' => float,
+    'base_prompt' => string,
   ]
   ```
 
-* `feeds_ia_general`
-  Reservado para configurações gerais. Possível uso futuro:
-
-  * `default_author_id` (autor padrão para os rascunhos),
-  * flags de comportamento global.
-
-**Responsabilidades**
-
-* Ler/gravar essas options.
-* Garantir valores padrão seguros.
-* Expor métodos utilitários:
-
-  * `get_feeds()`, `save_feeds( $feeds )`,
-  * `get_ai_settings()`, `save_ai_settings( $settings )`,
-  * `get_general_settings()`.
-
----
+* `feeds_ia_general` – configurações gerais (por exemplo, `default_author_id`).
 
 ### 5.4. Leitura de feeds – `class-feeds-manager.php`
 
-**Funções principais**
+* Usa `fetch_feed()` (SimplePie) para carregar RSS.
 
-* Receber um `feed_config` (entrada da `feeds_ia_feeds`).
-
-* Usar `fetch_feed()` (SimplePie) para carregar o RSS.
-
-* Normalizar itens em estrutura interna:
+* Normaliza itens:
 
   ```php
   [
     'feed_id'      => string,
     'title'        => string,
-    'content_raw'  => string,       // HTML/texto original do feed
-    'link'         => string,       // URL original da matéria
-    'image_url'    => string|null,  // imagem principal quando identificável
-    'tags'         => string[],     // tags/categorias do feed, se houver
-    'published_at' => int|null,     // timestamp
-    'guid'         => string        // GUID do item (ou hash)
-  ]
-  ```
-
-* Deduplicação:
-
-  * Verifica se já existe um post com:
-
-    * `_feeds_ia_original_link = link`, ou
-    * `_feeds_ia_original_guid = guid`.
-  * Se existir, o item é ignorado.
-
----
-
-### 5.5. Processamento de conteúdo – `class-content-processor.php`
-
-**Entrada**
-
-* Item normalizado da `Feeds_IA_Feeds_Manager`.
-
-**Saída**
-
-* Estrutura preparada para IA:
-
-  ```php
-  [
-    'feed_id'      => string,
-    'title'        => string,
-    'content_text' => string,       // texto limpo, sem scripts/estilos
+    'content_raw'  => string,
     'link'         => string,
     'image_url'    => string|null,
     'tags'         => string[],
     'published_at' => int|null,
-    'guid'         => string
+    'guid'         => string,
   ]
   ```
 
-**Tarefas**
+* Deduplicação por `_feeds_ia_original_link` / `_feeds_ia_original_guid`.
 
-* Remover elementos indesejados (`<script>`, `<style>` etc.).
-* Normalizar quebras de linha.
-* Extrair primeira `<img>` útil como candidata a imagem destacada.
-* Garantir que `content_text` esteja adequado para ser passado à IA (sem HTML desnecessário).
+### 5.5. Processamento de conteúdo – `class-content-processor.php`
 
----
+* Recebe item normalizado, limpa HTML, remove scripts/estilos.
+* Extrai primeira `<img>` ou dados de imagem relevantes.
+* Gera estrutura para IA:
+
+  ```php
+  [
+    'feed_id'      => string,
+    'title'        => string,
+    'content_text' => string,
+    'link'         => string,
+    'image_url'    => string|null,
+    'tags'         => string[],
+    'published_at' => int|null,
+    'guid'         => string,
+  ]
+  ```
 
 ### 5.6. IA – `class-ai-interface.php` e `class-ai-gemini.php`
 
-**Interface e fachada – `class-ai-interface.php`**
+* `Feeds_IA_AI_Provider` define a interface `rewrite_article( array $article, array $options = [] )`.
+* `Feeds_IA_AI` lê configurações de IA e instancia `Feeds_IA_AI_Gemini`.
 
-* Define `Feeds_IA_AI_Provider`:
+**`class-ai-gemini.php`**
 
-  ```php
-  interface Feeds_IA_AI_Provider {
-      /**
-       * @param array $article Estrutura com 'title', 'content_text', 'link', 'image_url' etc.
-       * @param array $options Opções adicionais (modelo, temperatura etc.).
-       * @return array ['title' => string, 'content' => string, 'summary' => string]
-       */
-      public function rewrite_article( array $article, array $options = array() );
-  }
-  ```
+* Monta prompt com:
 
-* Classe estática `Feeds_IA_AI`:
+  * descrição da tarefa (notícia de RPG de mesa);
+  * regras editoriais (PT-BR, vocabulário RPG, sem invenção de fatos, preservar volume de informação);
+  * instruções de formato de saída em JSON com `title`, `content`, `summary`.
 
-  * lê `feeds_ia_ai_settings`,
-  * instancia `Feeds_IA_AI_Gemini`,
-  * monta `options`,
-  * repassa chamada.
+* Envia request para `.../models/{model}:generateContent?key=API_KEY`.
 
-**Implementação Gemini – `class-ai-gemini.php`**
+* Pós-processa resposta:
 
-* Lê:
+  * extrai texto (`extract_text_from_gemini_response`);
+  * remove fences ```json;
+  * faz `json_decode`.
 
-  * API key,
-  * modelo,
-  * temperatura,
-  * prompt base adicional.
-* Constrói prompt final contendo:
+* Converte texto simples em `<p>` se não houver HTML.
 
-  * descrição da tarefa (reescrever notícia de RPG de mesa),
-  * invariantes editoriais (sem invenção, PT-BR, vocabulário RPG, terceira pessoa),
-  * pedido explícito de resposta em **JSON** com campos:
-
-    * `title` (título reescrito),
-    * `content` (HTML),
-    * `summary` (resumo curto para meta description).
-* Faz requisição via `wp_remote_post()` ao endpoint do Google Gemini.
-* Pós-processa a resposta:
-
-  * remove blocos tipo `json` se vierem,
-  * decodifica JSON,
-  * valida presença de `title`, `content`, `summary`,
-  * garante que `content` esteja em HTML (envolvendo parágrafos em `<p>` quando necessário).
-* Método de teste:
-
-  ```php
-  public function test_connection()
-  ```
-
-  * Envia um prompt mínimo para verificar:
-
-    * se a chave é válida,
-    * se o modelo está acessível.
-  * Retorna `true` em sucesso ou `WP_Error` em falha, para uso na tela “IA & Prompt”.
-
----
+* Expõe `test_connection()` para teste rápido de chave/modelo.
 
 ### 5.7. Publicação – `class-publisher.php`
 
-**Entrada**
-
-* Configuração de feed.
-* Estrutura `$article` (pré-processada).
-* Estrutura `$ai_result` (resultado da IA).
-
-**Criação do post**
-
-* Cria post com:
+* Cria o post com:
 
   ```php
   [
-    'post_type'   => 'post',
-    'post_status' => 'draft',              // INVARIANTE: sempre rascunho
-    'post_title'  => $ai_result['title'],
-    'post_content'=> $ai_result['content'] . $bloco_de_fonte,
-    'post_author' => (int) $default_author_id_ou_author_atual,
-    'post_category' => [ $feed_config['category'] ], // se configurado
+    'post_type'    => 'post',
+    'post_status'  => 'draft',      // invariável
+    'post_title'   => $ai_result['title'],
+    'post_content' => $ai_result['content'] . $bloco_de_fonte,
+    'post_author'  => $autor_definido,
+    'post_category'=> [ $feed_config['category'] ],
   ]
   ```
 
-* Adiciona bloco de fonte:
+* Grava metadados `_feeds_ia_*` (link, guid, feed_id, summary, modelo, hash).
 
-  ```html
-  <p><em>Fonte original: <a href="LINK_ORIGINAL">LINK_ORIGINAL</a></em></p>
-  ```
+* Tenta baixar e associar imagem destacada com base em `image_url`.
 
-**Metadados**
-
-* Grava em `_feeds_ia_*`:
-
-  * `_feeds_ia_original_link`
-  * `_feeds_ia_original_guid`
-  * `_feeds_ia_feed_id`
-  * `_feeds_ia_summary`
-  * `_feeds_ia_model`
-  * `_feeds_ia_hash` (hash de deduplicação interna)
-
-**Imagem destacada (opcional)**
-
-* Se `image_url` existir:
-
-  * baixa a imagem,
-  * cria attachment no WordPress,
-  * vincula como `featured image` do post.
-* Em caso de erro:
-
-  * registra log com status `error-image`.
-
----
+* Futuro: integração opcional com Yoast/SEO (ver seção 9.2).
 
 ### 5.8. Cron – `class-cron.php`
 
-**Agendamento base**
-
-* Registra intervalo personalizado (ex.: `feeds_ia_15min`) para rodar a cada N minutos.
-* Cria um evento `feeds_ia_cron` anexado a esse intervalo.
-
-**Execução**
-
+* Registra intervalo personalizado (ex.: `feeds_ia_15min`).
+* Evento: `feeds_ia_cron`.
 * `run_scheduled()`:
 
-  * obtém lista de feeds ativos,
-  * verifica, por feed, se:
+  * obtém feeds ativos;
+  * verifica se `current_time('timestamp') - last_run >= frequency` (em minutos);
+  * chama `run_for_feed()` para cada feed elegível.
+* `run_for_feed()` executa pipeline completo (ler RSS → IA → rascunho) e registra logs.
 
-    * está ativo, e
-    * a diferença entre o horário atual (`current_time('timestamp')`) e `last_run` é maior que `frequency` (minutos).
-  * para cada feed elegível:
+### 5.9. Logs – `class-logger.php` + `admin/views/logs.php`
 
-    * chama `run_for_feed( $feed_config )`.
-
-* `run_for_feed( $feed_config )`:
-
-  * obtém itens novos via `Feeds_IA_Feeds_Manager`,
-  * pré-processa com `Feeds_IA_Content_Processor`,
-  * chama `Feeds_IA_AI` para reescrever,
-  * cria posts via `Feeds_IA_Publisher`,
-  * atualiza `last_run`,
-  * registra logs com contagem de rascunhos criados e mensagens de erro/sucesso.
-
-**Integração com agendamentos**
-
-* `class-schedules.php` fornece agendamentos adicionais por horário/dia.
-* A integração pode seguir uma de duas estratégias:
-
-  * usar **apenas frequência** por feed, ou
-  * combinar frequência + agendamentos (ex.: rodar feed se agendamento estiver “vencido” para aquele dia/horário).
-* O cálculo de horário/dia deve usar **sempre** `current_time('timestamp')`, respeitando o fuso do WordPress (ex.: Brasília).
-
----
-
-### 5.9. Logs – `class-logger.php` e `admin/views/logs.php`
-
-**Armazenamento**
-
-* Option `feeds_ia_logs` com lista de entradas, cada uma contendo:
+* Option `feeds_ia_logs` com entradas:
 
   ```php
   [
-    'log_at'         => int,     // timestamp
+    'log_at'         => int,
     'feed_id'        => string,
     'feed_name'      => string,
-    'status'         => string,  // success, error-ai, error-feed, error-publish, error-image, test-ai-*
+    'status'         => string,
     'title_original' => string,
     'title_generated'=> string,
     'message'        => string,
-    'post_id'        => int|null
+    'post_id'        => int|null,
   ]
   ```
 
-* Política de retenção: manter no máximo N entradas (ex.: 500), descartando as mais antigas.
+* Limite de histórico (ex.: 500 linhas).
 
-**Leitura**
+* Tela de logs com filtros de feed, status e período; datas exibidas como `d/m/Y H:i`.
 
-* Métodos utilitários para filtragem por:
+### 5.10. Estatísticas – `class-stats.php` + `dashboard.php`
 
-  * `feed_id`,
-  * `status`,
-  * intervalo de dias.
+* Calcula:
 
-**Tela de logs**
+  * total de feeds;
+  * feeds ativos/inativos;
+  * rascunhos criados no total;
+  * rascunhos criados nos últimos 30 dias.
+* Dashboard exibe cards com esses números e listas de execuções/posts recentes.
 
-* Filtros:
+### 5.11. Agendamentos – `class-schedules.php` + `schedules.php`
 
-  * feed (select),
-  * status (select com rótulos em português),
-  * período (últimas 24h, 7 dias, 30 dias, 90 dias).
-* Tabela:
+* Option `feeds_ia_schedules`:
 
-  * Data e hora (formato `d/m/Y H:i`),
-  * Feed,
-  * Status,
-  * Título original,
-  * Título gerado,
-  * Mensagem,
-  * Link para “Editar rascunho” quando `post_id` existir.
+  ```php
+  [
+    'id'           => string,
+    'feed_id'      => string,
+    'time_of_day'  => 'HH:MM',    // 24h
+    'days_of_week' => string[],   // ['mon','tue',...]
+    'status'       => 'active'|'inactive',
+    'last_run'     => int|null,
+  ]
+  ```
 
----
+* UI:
 
-### 5.10. Estatísticas – `class-stats.php` e `admin/views/dashboard.php`
-
-**`class-stats.php`**
-
-* Gera resumo com:
-
-  * total de feeds,
-  * feeds ativos/inativos,
-  * total de rascunhos criados pelo plugin,
-  * rascunhos criados nas últimas 24h,
-  * rascunhos criados nos últimos 7 dias.
-* Opcionalmente, fornece listas:
-
-  * execuções recentes (`get_recent_runs()`),
-  * rascunhos recentes (`get_recent_posts()`).
-
-**`admin/views/dashboard.php`**
-
-* Exibe:
-
-  * cards com resumo de feeds e rascunhos,
-  * tabela de execuções recentes (com data/hora `d/m/Y H:i`),
-  * tabela de rascunhos recentes (título clicável levando ao editor de post).
-
----
-
-### 5.11. Agendamentos – `class-schedules.php` e `admin/views/schedules.php`
-
-**Armazenamento**
-
-Option `feeds_ia_schedules`:
-
-```php
-[
-  'id'           => string,     // ID do agendamento
-  'feed_id'      => string,     // referência a um feed
-  'time_of_day'  => 'HH:MM',    // horário em 24h (ex.: '08:00', '22:30')
-  'days_of_week' => string[],   // ['mon', 'tue', ...] (interno)
-  'status'       => 'active'|'inactive',
-  'last_run'     => int|null    // timestamp da última execução desse agendamento
-]
-```
-
-**Dia da semana**
-
-* Internamente: códigos (`sun`, `mon`, `tue`, `wed`, `thu`, `fri`, `sat`).
-* UI (administrativa): rótulos em português:
-
-  * Domingo
-  * Segunda-feira
-  * Terça-feira
-  * Quarta-feira
-  * Quinta-feira
-  * Sexta-feira
-  * Sábado
-
-**Tela de agendamentos**
-
-* Para cada agendamento:
-
-  * seleção de feed,
-  * campo `time` (HTML5) em formato `HH:MM` (24h),
-  * checkboxes para dias da semana,
-  * status ativo/inativo,
+  * rótulos de dias em português (Domingo–Sábado);
+  * horários em formato 24h;
   * exibição de `last_run` em `d/m/Y H:i`.
-* Linha em branco para criação de novo agendamento.
 
-**Horário e fuso**
+* Lógica de `is_due()` deve usar `current_time('timestamp')` e `date_i18n()`/`wp_date()` para respeitar o fuso configurado (Brasil).
 
-* Todo cálculo de horário/dia deve usar:
+### 5.12. Assets – `admin.js` e `admin.css`
 
-  * `current_time( 'timestamp' )` para obter o momento atual,
-  * `date_i18n()` ou `wp_date()` para extrair:
+* `admin.js`:
 
-    * hora/minuto,
-    * dia da semana, no fuso do WordPress (ex.: Brasília).
+  * estado de carregamento para botões “Testar conexão com IA” e “Processar agora”;
+  * desabilita botão, troca texto para “Testando...”/“Processando...”.
 
----
+* `admin.css`:
 
-### 5.12. Frontend administrativo – `assets/js/admin.js` e `assets/css/admin.css`
-
-**admin.js**
-
-* Comportamentos:
-
-  * Botão “Testar conexão com IA”:
-
-    * ao clicar:
-
-      * desabilita o botão,
-      * muda texto para “Testando...”,
-      * aplica classe `.feeds-ia-btn-loading`,
-      * envia o form normalmente; o estado visual é restaurado após o reload.
-  * Botões “Processar agora” por feed:
-
-    * ao submeter o form daquela linha:
-
-      * desabilita o botão,
-      * troca texto para “Processando...”,
-      * aplica `.feeds-ia-btn-loading`.
-
-**admin.css**
-
-* Layout:
-
-  * `.feeds-ia-wrap`: largura máxima, alinhamento com painel WP.
-  * `.feeds-ia-dashboard-metrics`: cards de resumo.
-  * `.feeds-ia-card`: box com sombra leve, usado no dashboard.
-* Tabelas:
-
-  * espaçamento consistente,
-  * quebra de linhas em títulos longos.
-* Filtros:
-
-  * `.feeds-ia-filters`: layout flex, responsivo.
-* Botões em carregamento:
-
-  * `.feeds-ia-btn-loading`: opacidade reduzida, cursor neutro.
-  * spinner simples via `::after` com animação `@keyframes feeds-ia-spin`.
+  * estilos de cards de dashboard;
+  * tabelas e filtros;
+  * estilo de botões em carregamento (`.feeds-ia-btn-loading`).
 
 ---
 
 ## 6. Prompt de IA e formato de saída
 
-### 6.1. Requisitos de prompt
+### 6.1. Requisitos de conteúdo
 
-Qualquer construção de prompt usada pelo plugin deve:
+As instruções fixas devem incluir:
 
-* Informar que a tarefa é reescrever uma **notícia de RPG de mesa**.
+* Saída **sempre em português do Brasil**.
 
-* Especificar:
+* Narração em **terceira pessoa**, tom informativo.
 
-  * texto em **português do Brasil**,
-  * narração em **terceira pessoa**,
-  * vocabulário de RPG de mesa,
-  * proibição absoluta de invenção/modificação de fatos,
-  * preservação de datas, valores, nomes, títulos de suplementos, cenários, sistemas etc.
+* Uso de vocabulário de RPG de mesa.
 
-* Exigir saída em **JSON puro** com a seguinte estrutura:
+* Proibição de inventar fatos, alterar datas/valores/nomes.
 
-  ```json
-  {
-    "title": "Título reescrito em português do Brasil",
-    "content": "<p>Conteúdo reestruturado em HTML...</p>",
-    "summary": "Resumo curto para meta description."
-  }
-  ```
+* Necessidade de **preservar o volume de informação**:
 
-### 6.2. Pós-processamento da resposta
+  > não transformar uma matéria em um parágrafo único quando o original traz múltiplos parágrafos; manter o mesmo conjunto de informações, em nova redação.
 
-* Remover envoltórios como blocos `json` se existirem.
-* `json_decode` em modo associativo.
-* Validar:
+* Pedido de um **resumo curto** (1–2 frases) para meta description.
 
-  * `title` não vazio,
-  * `content` não vazio,
-  * `summary` não vazio.
-* Garantir que `content` esteja em HTML adequado para WordPress.
+### 6.2. Formato de resposta
+
+A saída deve ser **apenas JSON**:
+
+```json
+{
+  "title": "Título reescrito em português do Brasil",
+  "content": "<p>Conteúdo reestruturado em HTML...</p>",
+  "summary": "Resumo curto em português para meta description."
+}
+```
+
+Sem texto extra, cabeçalhos ou comentários de sistema.
+
+### 6.3. Pós-processamento
+
+* Remover fences `json, ` etc.
+* `json_decode` em array associativo.
+* Validar presença e tipo de `title`, `content`, `summary`.
+* Se `content` vier sem `<p>`/`<h*>`, envolver linhas em `<p>...</p>`.
+* Em caso de erro:
+
+  * registrar log com `status = error-ai` e mensagem detalhada;
+  * abortar criação do post para aquele item.
 
 ---
 
-## 7. Datas, horários e Brasil
+## 7. Datas, horários e fuso horário
 
-### 7.1. Fuso horário
+* Assumir WordPress configurado para **Brasília** (`America/Sao_Paulo`).
+* Para cálculos de tempo:
 
-* Assumir que o WordPress está configurado para o fuso de **Brasília** (`America/Sao_Paulo`).
-* Cálculo de hora atual:
+  * usar sempre `current_time('timestamp')`.
+* Para exibição:
 
-  * usar sempre `current_time( 'timestamp' )`.
-* Jamais usar `time()` / `gmdate()` diretamente para lógica de cron ou agendamento.
-
-### 7.2. Formato de exibição
-
-* Exibir data/hora sempre em formato **24h**, por exemplo:
-
-  * `07/11/2025 08:30`
-  * `13/02/2026 21:05`
-* Use:
-
-  ```php
-  date_i18n( 'd/m/Y H:i', $timestamp );
-  ```
-
-### 7.3. Dias da semana
-
-* Interface administrativa deve usar nomes em português:
-
-  * Domingo
-  * Segunda-feira
-  * Terça-feira
-  * Quarta-feira
-  * Quinta-feira
-  * Sexta-feira
-  * Sábado
+  * `date_i18n( 'd/m/Y H:i', $timestamp )`.
+* Nos agendamentos, converter sempre para o fuso configurado e usar rótulos de dia em português.
 
 ---
 
 ## 8. Segurança, validação e performance
 
-### 8.1. Segurança
-
-* Todas as telas do plugin exigem:
-
-  * `current_user_can( 'manage_options' )`.
-* Formulários:
-
-  * `wp_nonce_field()` e `wp_verify_nonce()` em todas as ações (salvar feeds, salvar IA, salvar agendamentos, processar feed, testar IA, apagar registros).
-* Entrada:
-
-  * URLs: `esc_url_raw`.
-  * Textos curtos: `sanitize_text_field`.
-  * Textos longos (prompt, mensagens): `sanitize_textarea_field`.
-  * IDs e status: `sanitize_key` / cast para int quando necessário.
-* Saída:
-
-  * `esc_html`, `esc_attr`, `esc_url` nas views.
-
-### 8.2. Performance
-
-* Limitar itens por execução (`items_per_run` por feed).
-* Definir timeouts razoáveis em chamadas à IA.
-* Aproveitar cache do SimplePie para RSS.
-* Limitar tamanho de `feeds_ia_logs` (ex.: 500 entradas).
+* Todas as telas exigem `current_user_can( 'manage_options' )`.
+* Formulários com `wp_nonce_field()`/`wp_verify_nonce()`.
+* Entrada sanitizada (`esc_url_raw`, `sanitize_text_field`, `sanitize_textarea_field`, casts para `int`).
+* Saída escapada (`esc_html`, `esc_attr`, `esc_url`).
+* Limite de itens por execução respeitado por feed.
+* Timeout de chamadas para IA configurado (20–30s).
+* Logs limitados (ex.: 500 registros).
 
 ---
 
-## 9. Guia operacional para agentes de IA
+## 9. Problemas observados no primeiro teste prático
 
-### 9.1. Ordem de leitura antes de modificar
+O primeiro rascunho gerado a partir de um feed (exemplo: notícia sobre “Conjunto Introdutório de Arkham Horror RPG de Mesa Chega ao Brasil”) expôs os seguintes problemas:
 
-1. Ler este `feeds_agent.md` inteiro.
-2. Localizar o arquivo relevante:
+1. **Texto excessivamente curto**
 
-   * comportamento de leitura? → `class-feeds-manager.php`;
-   * comportamento da IA? → `class-ai-interface.php` + `class-ai-gemini.php`;
-   * publicação e meta? → `class-publisher.php`;
-   * cron/agendamentos? → `class-cron.php` + `class-schedules.php`;
-   * telas? → `admin/views/*.php`;
-   * logs/estatísticas? → `class-logger.php`, `class-stats.php`.
-3. Verificar se a mudança desejada altera algum **invariante**:
+   * A IA devolveu um corpo de texto muito pequeno, com poucas frases, em nível de detalhe inferior ao original.
+   * Isso viola a regra de “preservar o volume de informação” e gera algo semelhante a um tweet, não a uma nota informativa.
 
-   * se sim, não aplicar; sugerir alteração do contrato e atualizar este documento explicitamente.
+2. **Imagem destacada ausente**
 
-### 9.2. Regras ao escrever ou refatorar código
+   * O rascunho não recebeu imagem destacada, mesmo o feed tendo conteúdo com ilustração na página de origem.
+   * É necessário verificar se o feed está expondo imagem nos campos esperados (`<img>`, `<media:content>`, `<enclosure>` etc.) e, quando houver, tentar baixá-la.
 
-* Manter o prefixo:
+3. **Resumo não utilizado visivelmente**
 
-  * Classes: `Feeds_IA_...`
-  * Funções auxiliares: `feeds_ia_...`
-* Seguir padrões WordPress:
+   * O campo `summary` retornado pela IA não apareceu como metadescrição no Yoast SEO.
+   * O resumo foi apenas armazenado em `_feeds_ia_summary` (quando armazenado), mas não houve integração com os campos de SEO.
 
-  * indentação com tab,
-  * uso de hooks (`add_action`, `add_filter`) onde apropriado.
-* Documentar métodos com PHPDoc mínimo:
+4. **Integração inexistente com Yoast SEO**
 
-  * parâmetros,
-  * tipo de retorno.
+   * A tela do Yoast mostrou:
 
-### 9.3. Ao adicionar nova funcionalidade
+     * **Metadescrição em branco**;
+     * **Frase-chave de foco** vazia;
+     * “Semáforo” reclamando de tamanho de título/slug.
+   * O plugin hoje não escreve em nenhum meta específico do Yoast.
 
-* Verificar se há impacto em:
+5. **Título e slug fora das recomendações do Yoast**
 
-  * fluxo de IA (prompts),
-  * invariantes editoriais,
-  * escopo de logs e dashboard.
-* Atualizar este `feeds_agent.md`:
+   * Título longo demais para o limite “ideal” do Yoast; slug extenso.
+   * O plugin não aplica nenhuma política de:
 
-  * descrever nova opção/fluxo,
-  * indicar se é “implementado” ou “planejado”.
+     * sugerir título SEO dentro da faixa recomendada;
+     * encurtar slug mantendo entendimento claro.
 
-### 9.4. Ao corrigir bugs
-
-* Se envolver:
-
-  * status do post,
-  * idioma do texto,
-  * vocabulário/editorial,
-  * datas/horários,
-* Validar que as mudanças reforçam as regras descritas nas seções 2, 6 e 7, jamais as flexibilizando.
+Esses pontos não quebram o funcionamento técnico do plugin, mas indicam **pendências de refinamento editorial e de SEO** que precisam ser documentadas e planejadas.
 
 ---
 
-## 10. Checklist de validação
+## 10. Itens pendentes e refatorações
 
-Antes de considerar o plugin estável após qualquer alteração:
+### 10.1. Refatorar código existente
 
-* [ ] Todos os posts criados pelo plugin estão com `post_status = 'draft'`.
-* [ ] Títulos e conteúdos gerados pela IA estão em **português do Brasil**, com vocabulário de RPG de mesa.
-* [ ] Nenhuma data, número, nome de pessoa/autor/editora/sistema/suplemento foi modificado em relação à fonte original.
-* [ ] Todas as telas do plugin exibem datas/horas em formato `d/m/Y H:i`, respeitando o fuso de Brasília (ou o fuso configurado no WordPress).
-* [ ] Labels de dias da semana aparecem em português nas telas de agendamento.
-* [ ] Feeds podem ser cadastrados, editados, removidos e processados (“Processar agora”) sem erros.
-* [ ] O cron executa sem warnings ou fatals e cria apenas rascunhos.
-* [ ] A tela de logs exibe entradas recentes com informações completas e coerentes.
-* [ ] O botão “Testar conexão com IA” funciona e sinaliza erro ou sucesso de forma clara.
-* [ ] A desinstalação remove options `feeds_ia_*` e metadados `_feeds_ia_*` associados a posts.
+1. **Forçar `post_status = 'draft'`**
+   Arquivo: `includes/class-publisher.php`
+
+   * Garantir que qualquer valor de `mode` no feed seja ignorado na criação do post.
+   * Documentar em comentário que autopublicação é proibida por política editorial.
+
+2. **Reforçar volume de informação no prompt da IA**
+   Arquivo: `includes/class-ai-gemini.php`
+
+   * Ajustar `core_instructions` para incluir explicitamente:
+
+     * manter número de parágrafos e riqueza de detalhes equivalentes ao texto original;
+     * não reduzir notícia a um resumo curto.
+   * Garantir que isso não incentive invenção de fatos (apenas preservação do conteúdo já presente).
+
+3. **Tratar casos de `summary` vazio**
+   Arquivo: `includes/class-ai-gemini.php` e/ou `class-publisher.php`
+
+   * Se o JSON retornar `summary` vazio:
+
+     * gerar fallback a partir das primeiras frases do conteúdo reescrito (sem adicionar fatos novos);
+     * registrar log de aviso (`status = warning-summary-fallback`).
+
+4. **Imagem destacada mais robusta**
+   Arquivo: `includes/class-publisher.php` e, se necessário, `class-content-processor.php`
+
+   * Revisar algoritmo de extração de imagem:
+
+     * suportar `<media:content>`, `<enclosure>`, `og:image` quando possível;
+     * registrar logs específicos quando não for encontrada imagem.
+   * Corrigir qualquer uso de variáveis não passadas como parâmetro em `maybe_set_featured_image()`.
+
+5. **Fuso horário nos agendamentos**
+   Arquivo: `includes/class-schedules.php`
+
+   * Substituir uso de `gmdate()` por `current_time('timestamp')` + `wp_date()/date_i18n()`.
+   * Confirmar que a comparação `time_of_day` × horário atual acontece no fuso do WordPress (Brasil).
+
+6. **Loader incluindo todas as classes**
+   Arquivo: `includes/class-loader.php`
+
+   * Garantir `require_once` ou autoload para `class-stats.php` e `class-schedules.php`.
+
+7. **Enfileiramento de assets administrativos**
+   Arquivo: `includes/class-admin-menu.php` (ou classe própria de assets)
+
+   * Enfileirar `admin.css` e `admin.js` somente nas telas do plugin.
+
+### 10.2. Implementar funcionalidades previstas
+
+1. **Integração mínima com Yoast SEO (opcional, mas desejável)**
+   Arquivos: `includes/class-publisher.php` e/ou helper específico
+
+   * Detecção: se Yoast estiver ativo (por exemplo, `defined( 'WPSEO_VERSION' )` ou `class_exists( 'WPSEO_Meta' )`):
+   * Preencher metadados do post:
+
+     * **Meta description**: gravar `summary` em meta key apropriada (por exemplo, `_yoast_wpseo_metadesc` – confirmar nome exato antes de implementar).
+     * **Frase-chave de foco**:
+
+       * derivar a partir do título (por exemplo, o nome do sistema ou suplemento citado);
+       * gravar em meta key correspondente (por exemplo, `_yoast_wpseo_focuskw` e `_yoast_wpseo_focuskw_text_input` – confirmar).
+     * **SEO title**:
+
+       * opcionalmente gravar um título SEO (igual ao título do post ou levemente abreviado);
+       * procurar manter faixas de tamanho recomendadas pelo Yoast, sem omitir informações essenciais.
+   * Registar log específico quando a integração com Yoast estiver ativa/desativada.
+
+2. **Política de slug e título SEO**
+   Arquivos: `class-publisher.php` e possivelmente helper de SEO
+
+   * Antes de criar o post:
+
+     * gerar `post_name` (slug) encurtado, removendo preposições e palavras vazias quando necessário, sem perder o núcleo factual (sistema, produto, ação “chega ao Brasil” etc.);
+     * opcionalmente, preparar título SEO próprio, respeitando limite de tamanho recomendado, sem cortar de modo enganoso.
+   * Importante: não alterar o título principal de forma que mude o sentido; qualquer abreviação deve preservar o núcleo factual.
+
+3. **Dashboard mais informativo**
+   Arquivo: `admin/views/dashboard.php` + `class-stats.php`
+
+   * Acrescentar:
+
+     * blocos com “últimos rascunhos gerados” (título + link para edição);
+     * blocos com “últimas execuções de cron” (data/hora, feed, quantidade de itens).
+
+4. **Melhor feedback visual nas telas**
+   Arquivo: `assets/js/admin.js`, `assets/css/admin.css`, views
+
+   * Notificações claras de:
+
+     * “Configurações salvas”;
+     * “Processamento concluído: X itens, Y rascunhos criados, Z erros”;
+     * “Teste de IA: sucesso/erro (com mensagem resumida)”.
 
 ---
 
-## 11. Extensões futuras mapeadas (opcionais)
+## 11. Checklist para agentes de desenvolvimento
 
-Estas ideias não estão obrigatoriamente implementadas, mas são direções coerentes com o contrato atual:
+Antes de considerar qualquer ciclo de desenvolvimento concluído:
 
-* **Integração explícita com plugins de SEO**
-  Gravar `summary` em campos específicos de Yoast/RankMath, respeitando APIs públicas desses plugins.
+* [ ] Todos os posts criados pelo plugin estão como **rascunho** (`post_status = 'draft'`).
+* [ ] O texto reescrito mantém o **mesmo conjunto de informações** que o texto original, em português do Brasil, com vocabulário de RPG de mesa.
+* [ ] Nenhuma data, número, nome de pessoa/autor/editora/sistema/suplemento foi alterado indevidamente.
+* [ ] O resumo (`summary`) está sendo gerado e armazenado; quando Yoast estiver ativo, a meta description corresponde a esse resumo.
+* [ ] A interface mostra datas/horas em formato `d/m/Y H:i`, respeitando o fuso horário configurado (Brasil).
+* [ ] Dias da semana são exibidos em português nas telas de agendamento.
+* [ ] Feeds podem ser cadastrados, editados, removidos e processados manualmente.
+* [ ] O cron executa sem erros fatais e cria apenas rascunhos.
+* [ ] Logs contêm informações suficientes para auditoria (incluindo testes de IA).
+* [ ] O botão “Testar conexão com IA” retorna mensagens claras de sucesso ou falha.
+* [ ] A desinstalação remove options `feeds_ia_*` e metadados `_feeds_ia_*`.
 
-* **Filtros avançados por feed**
-  Regras específicas por origem (ex.: ignorar posts de certa categoria do feed, limitar por palavra-chave).
+---
 
-* **Fila assíncrona de IA**
-  Em ambientes de alto volume, usar fila separada para chamadas de IA, reduzindo o peso do cron.
+## 12. Extensões futuras mapeadas
 
-Qualquer uma dessas extensões deve preservar todos os invariantes editoriais descritos nas seções 2 e 6.
+Itens abaixo são sugestões de evolução, não obrigatórios:
+
+* Integração com outros plugins de SEO além do Yoast, respeitando APIs públicas.
+* Filtros por palavra-chave por feed (incluir/excluir itens no momento da leitura).
+* Fila assíncrona de chamadas à IA para ambientes com grande volume de feeds.
+* Modo “pré-análise”: criar rascunhos marcados com uma tag específica quando o feed contiver termos sensíveis (por exemplo, mudanças de licença, polêmicas de mercado), facilitando triagem manual.
+
+Em qualquer evolução, as invariantes editoriais das seções 2 e 6 permanecem prioritárias.

@@ -133,7 +133,12 @@ EOT;
 		$full_prompt = $core_instructions . $user_prompt . $source_block;
 
 		// Monta URL do endpoint.
-		$endpoint = trailingslashit( $this->base_url . $model ) . 'generateContent?key=' . rawurlencode( $api_key );
+		$endpoint = sprintf(
+	'%s%s:generateContent?key=%s',
+	rtrim( $this->base_url, '/' ) . '/',
+			rawurlencode( $model ),
+			rawurlencode( $api_key )
+		);
 
 		$body = array(
 			'contents' => array(
@@ -272,8 +277,12 @@ Responda APENAS com um JSON válido no formato:
 }
 EOT;
 
-		$endpoint = trailingslashit( $this->base_url . $model ) . 'generateContent?key=' . rawurlencode( $api_key );
-
+		$endpoint = sprintf(
+	'%s%s:generateContent?key=%s',
+	rtrim( $this->base_url, '/' ) . '/',
+			rawurlencode( $model ),
+			rawurlencode( $api_key )
+		);
 		$body = array(
 			'contents' => array(
 				array(

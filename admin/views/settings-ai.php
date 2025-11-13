@@ -1,87 +1,118 @@
 <?php
 /**
- * Tela de configuração da IA (Gemini) para o Feeds IA.
+ * Tela de configuração da IA (Google Gemini) do plugin Feeds IA.
  *
- * Permite:
- * - Definir API key, modelo, temperatura e prompt base.
- * - Testar a conexão com a IA usando as configurações atuais.
+ * Regras editoriais:
+ * - Reescrever notícias de RPG de mesa em português do Brasil.
+ * - Manter todos os fatos (datas, valores, nomes, sistemas, cenários, suplementos).
+ * - Não inventar informações, não especular.
+ * - Texto em terceira pessoa, tom informativo.
  */
 
 if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
+
+
+// Permissão mínima.
 if ( ! current_user_can( 'manage_options' ) ) {
-	return;
+	wp_die( esc_html__( 'Você não tem permissão para acessar esta página.', 'feeds-ia' ) );
 }
 
-$notices    = array();
-$ai_settings = Feeds_IA_Settings::get_ai_settings();
+// Processa envio do formulário (salvar e/ou testar).
+if ( 'POST' === $_SERVER['REQUEST_METHOD'] && isset( $_POST['feeds_ia_ai_settings'] ) ) {
 
-// Tratamento de POST (salvar / testar).
-if ( 'POST' === $_SERVER['REQUEST_METHOD'] && isset( $_POST['feeds_ia_ai_nonce'] ) ) {
-	if ( wp_verify_nonce( sanitize_text_field( wp_unslash( $_POST['feeds_ia_ai_nonce'] ) ), 'feeds_ia_save_ai' ) ) {
+	check_admin_referer( 'feeds_ia_save_ai', 'feeds_ia_ai_nonce' );
 
-		$action = isset( $_POST['feeds_ia_action'] ) ? sanitize_key( wp_unslash( $_POST['feeds_ia_action'] ) ) : 'save_ai';
+	// Configurações enviadas pelo formulário.
+	$raw_settings = wp_unslash( $_POST['feeds_ia_ai_settings'] );
 
-		$input = array(
-			'api_key'     => isset( $_POST['feeds_ia_api_key'] ) ? wp_unslash( $_POST['feeds_ia_api_key'] ) : '',
-			'model'       => isset( $_POST['feeds_ia_model'] ) ? wp_unslash( $_POST['feeds_ia_model'] ) : '',
-			'temperature' => isset( $_POST['feeds_ia_temperature'] ) ? wp_unslash( $_POST['feeds_ia_temperature'] ) : '',
-			'base_prompt' => isset( $_POST['feeds_ia_base_prompt'] ) ? wp_unslash( $_POST['feeds_ia_base_prompt'] ) : '',
-		);
+	// Salva configurações de IA.
+	if ( class_exists( 'Feeds_IA_Settings' ) ) {
+		Feeds_IA_Settings::save_ai_settings( $raw_settings );
+	}
 
-		Feeds_IA_Settings::save_ai_settings( $input );
-		$ai_settings = Feeds_IA_Settings::get_ai_settings();
+	$did_test = false;
+	$test_result = null;
 
-		if ( 'test_ai' === $action ) {
-			// Testa conexão com a IA usando as configurações recém-salvas.
-			$provider = new Feeds_IA_AI_Gemini();
-			$result   = $provider->test_connection();
+	// Se o usuário clicou em "Testar conexão com IA".
+	if ( isset( $_POST['feeds_ia_ai_test'] ) ) {
+		$did_test = true;
 
-			if ( is_wp_error( $result ) ) {
-				$notices[] = array(
-					'type'    => 'error',
-					'message' => sprintf(
-						'Falha ao testar a conexão com a IA: %s',
-						esc_html( $result->get_error_message() )
-					),
-				);
-			} else {
-				$notices[] = array(
-					'type'    => 'success',
-					'message' => 'Conexão com a IA testada com sucesso. O Gemini está acessível e respondendo.',
+		if ( class_exists( 'Feeds_IA_AI_Gemini' ) ) {
+			$provider    = new Feeds_IA_AI_Gemini();
+			$test_result = $provider->test_connection();
+		} else {
+			$test_result = new WP_Error(
+				'feeds_ia_ai_provider_missing',
+				__( 'Classe Feeds_IA_AI_Gemini não encontrada.', 'feeds-ia' )
+			);
+		}
+	}
+
+	// Notice de configurações salvas.
+	echo '<div class="notice notice-success is-dismissible"><p>';
+	echo esc_html__( 'Configurações de IA salvas com sucesso.', 'feeds-ia' );
+	echo '</p></div>';
+
+	// Notice de teste, se houver.
+	if ( $did_test ) {
+		if ( is_wp_error( $test_result ) ) {
+			echo '<div class="notice notice-error is-dismissible"><p>';
+			echo esc_html__( 'Falha ao testar a conexão com o Gemini:', 'feeds-ia' ) . ' ';
+			echo esc_html( $test_result->get_error_message() );
+			echo '</p></div>';
+
+			// Opcional: registrar no logger.
+			if ( class_exists( 'Feeds_IA_Logger' ) ) {
+				Feeds_IA_Logger::log(
+					array(
+						'type'    => 'ai_test',
+						'status'  => 'error',
+						'message' => $test_result->get_error_message(),
+					)
 				);
 			}
 		} else {
-			$notices[] = array(
-				'type'    => 'success',
-				'message' => 'Configurações de IA salvas com sucesso.',
-			);
+			echo '<div class="notice notice-success is-dismissible"><p>';
+			echo esc_html__( 'Conexão com o Gemini testada com sucesso.', 'feeds-ia' );
+			echo '</p></div>';
+
+			if ( class_exists( 'Feeds_IA_Logger' ) ) {
+				Feeds_IA_Logger::log(
+					array(
+						'type'    => 'ai_test',
+						'status'  => 'success',
+						'message' => 'Conexão com o Gemini OK.',
+					)
+				);
+			}
 		}
-	} else {
-		$notices[] = array(
-			'type'    => 'error',
-			'message' => 'Falha na validação do formulário. Tente novamente.',
-		);
 	}
 }
 
-?>
-<div class="wrap feeds-ia-wrap">
-	<h1><?php echo esc_html( 'Feeds IA – IA & Prompt' ); ?></h1>
+// Carrega configurações atuais para preencher o formulário.
+$settings = class_exists( 'Feeds_IA_Settings' )
+	? Feeds_IA_Settings::get_ai_settings()
+	: array();
 
-	<?php if ( ! empty( $notices ) ) : ?>
-		<?php foreach ( $notices as $notice ) : ?>
-			<div class="notice notice-<?php echo esc_attr( $notice['type'] ); ?> is-dismissible">
-				<p><?php echo esc_html( $notice['message'] ); ?></p>
-			</div>
-		<?php endforeach; ?>
-	<?php endif; ?>
+$api_key     = isset( $settings['api_key'] ) ? $settings['api_key'] : '';
+$model       = isset( $settings['model'] ) ? $settings['model'] : '';
+$temperature = isset( $settings['temperature'] ) ? (float) $settings['temperature'] : 0.3;
+$base_prompt = isset( $settings['base_prompt'] ) ? $settings['base_prompt'] : '';
+
+?>
+<div class="wrap">
+	<h1><?php esc_html_e( 'Feeds IA – IA & Prompt', 'feeds-ia' ); ?></h1>
 
 	<p class="description">
-		Esta tela controla a integração do plugin com a IA do Google Gemini.
-		O objetivo é reescrever notícias de RPG de mesa em português do Brasil, mantendo todos os fatos, datas, valores e nomes próprios exatamente como na fonte.
+		<?php
+		echo esc_html__(
+			'Esta tela controla a integração do plugin com a IA do Google Gemini. O objetivo é reescrever notícias de RPG de mesa em português do Brasil, mantendo todos os fatos, datas, valores e nomes próprios exatamente como na fonte.',
+			'feeds-ia'
+		);
+		?>
 	</p>
 
 	<form method="post" action="">
@@ -91,45 +122,65 @@ if ( 'POST' === $_SERVER['REQUEST_METHOD'] && isset( $_POST['feeds_ia_ai_nonce']
 			<tbody>
 				<tr>
 					<th scope="row">
-						<label for="feeds_ia_api_key">API Key do Google Gemini</label>
+						<label for="feeds-ia-api-key"><?php esc_html_e( 'API Key do Google Gemini', 'feeds-ia' ); ?></label>
 					</th>
 					<td>
 						<input
 							type="password"
-							name="feeds_ia_api_key"
-							id="feeds_ia_api_key"
+							id="feeds-ia-api-key"
+							name="feeds_ia_ai_settings[api_key]"
 							class="regular-text"
-							value="<?php echo esc_attr( $ai_settings['api_key'] ); ?>"
+							value="<?php echo esc_attr( $api_key ); ?>"
 							autocomplete="off"
 						/>
 						<p class="description">
-							Criar ou gerenciar a chave no Google AI Studio. A chave será usada apenas pelo servidor do WordPress.
+							<?php
+							printf(
+								wp_kses(
+									/* translators: %s = link para Google AI Studio */
+									__( 'Criar ou gerenciar a chave no <a href="%s" target="_blank" rel="noopener noreferrer">Google AI Studio</a>. A chave será usada apenas pelo servidor do WordPress.', 'feeds-ia' ),
+									array(
+										'a' => array(
+											'href'   => array(),
+											'target' => array(),
+											'rel'    => array(),
+										),
+									)
+								),
+								'https://aistudio.google.com/'
+							);
+							?>
 						</p>
 					</td>
 				</tr>
 
 				<tr>
 					<th scope="row">
-						<label for="feeds_ia_model">Modelo do Gemini</label>
+						<label for="feeds-ia-model"><?php esc_html_e( 'Modelo do Gemini', 'feeds-ia' ); ?></label>
 					</th>
 					<td>
 						<input
 							type="text"
-							name="feeds_ia_model"
-							id="feeds_ia_model"
+							id="feeds-ia-model"
+							name="feeds_ia_ai_settings[model]"
 							class="regular-text"
-							value="<?php echo esc_attr( $ai_settings['model'] ); ?>"
-							placeholder="ex.: gemini-1.5-flash"
+							value="<?php echo esc_attr( $model ); ?>"
+							placeholder="gemini-2.5-flash"
 						/>
 						<p class="description">
-							Informe o identificador exato do modelo configurado no Google (por exemplo, <code>gemini-1.5-flash</code>).
+							<?php
+							esc_html_e(
+								'Informe o identificador exato do modelo configurado no Google (por exemplo, gemini-2.5-flash).',
+								'feeds-ia'
+							);
+							?>
 						</p>
 					</td>
 				</tr>
 
 				<tr>
 					<th scope="row">
-						<label for="feeds_ia_temperature">Temperatura</label>
+						<label for="feeds-ia-temperature"><?php esc_html_e( 'Temperatura', 'feeds-ia' ); ?></label>
 					</th>
 					<td>
 						<input
@@ -137,33 +188,39 @@ if ( 'POST' === $_SERVER['REQUEST_METHOD'] && isset( $_POST['feeds_ia_ai_nonce']
 							step="0.1"
 							min="0"
 							max="1"
-							name="feeds_ia_temperature"
-							id="feeds_ia_temperature"
-							value="<?php echo esc_attr( $ai_settings['temperature'] ); ?>"
-							style="width: 80px;"
+							id="feeds-ia-temperature"
+							name="feeds_ia_ai_settings[temperature]"
+							value="<?php echo esc_attr( $temperature ); ?>"
 						/>
 						<p class="description">
-							Controle de variação criativa do texto. Valores baixos (0–0,3) mantêm o texto mais próximo do original; valores altos geram variação maior.
+							<?php
+							esc_html_e(
+								'Controle de variação criativa do texto. Valores baixos (0–0,3) mantêm o texto mais próximo do original; valores altos geram variação maior.',
+								'feeds-ia'
+							);
+							?>
 						</p>
 					</td>
 				</tr>
 
 				<tr>
-					<th scope="row" valign="top">
-						<label for="feeds_ia_base_prompt">Prompt base adicional</label>
+					<th scope="row">
+						<label for="feeds-ia-base-prompt"><?php esc_html_e( 'Prompt base adicional', 'feeds-ia' ); ?></label>
 					</th>
 					<td>
 						<textarea
-							name="feeds_ia_base_prompt"
-							id="feeds_ia_base_prompt"
-							rows="8"
-							cols="50"
-							class="large-text code"
-						><?php echo esc_textarea( $ai_settings['base_prompt'] ); ?></textarea>
+							id="feeds-ia-base-prompt"
+							name="feeds_ia_ai_settings[base_prompt]"
+							class="large-text"
+							rows="6"
+						><?php echo esc_textarea( $base_prompt ); ?></textarea>
 						<p class="description">
-							Este texto será acrescentado às instruções fixas do plugin.
-							O plugin já força a saída em português do Brasil, em terceira pessoa, com foco em RPG de mesa, sem invenção de fatos.
-							Use este campo apenas para ajustes finos de tom ou estrutura, sem pedir nada que contrarie essas regras.
+							<?php
+							esc_html_e(
+								'Este texto será acrescentado às instruções fixas do plugin. O plugin já força a saída em português do Brasil, em terceira pessoa, com foco em RPG de mesa, sem invenção de fatos. Use este campo apenas para ajustes finos de tom ou estrutura, sem pedir nada que contrarie essas regras.',
+								'feeds-ia'
+							);
+							?>
 						</p>
 					</td>
 				</tr>
@@ -171,35 +228,22 @@ if ( 'POST' === $_SERVER['REQUEST_METHOD'] && isset( $_POST['feeds_ia_ai_nonce']
 		</table>
 
 		<p class="submit">
-			<button
-				type="submit"
-				name="feeds_ia_action"
-				value="save_ai"
-				class="button button-primary"
-			>
-				Salvar configurações
+			<button type="submit" name="feeds_ia_ai_save" class="button button-primary">
+				<?php esc_html_e( 'Salvar configurações', 'feeds-ia' ); ?>
 			</button>
 
-			<button
-				type="submit"
-				name="feeds_ia_action"
-				value="test_ai"
-				class="button"
-				id="feeds-ia-test-ai"
-			>
-				Testar conexão com IA
+			<button type="submit" name="feeds_ia_ai_test" class="button">
+				<?php esc_html_e( 'Testar conexão com IA', 'feeds-ia' ); ?>
 			</button>
 		</p>
 	</form>
 
-	<hr />
-
-	<h2>Resumo das regras editoriais aplicadas pela IA</h2>
+	<h2><?php esc_html_e( 'Resumo das regras editoriais aplicadas pela IA', 'feeds-ia' ); ?></h2>
 	<ul>
-		<li>Saída sempre em português do Brasil.</li>
-		<li>Texto em terceira pessoa, tom informativo e voltado para RPG de mesa.</li>
-		<li>Preservação rígida de datas, valores numéricos, nomes de pessoas, editoras, sistemas, cenários e suplementos.</li>
-		<li>Nenhuma invenção de fatos, nenhuma especulação.</li>
-		<li>Todos os posts criados pelo plugin são salvos como rascunho para revisão humana.</li>
+		<li><?php esc_html_e( 'Saída sempre em português do Brasil.', 'feeds-ia' ); ?></li>
+		<li><?php esc_html_e( 'Texto em terceira pessoa, tom informativo e voltado para RPG de mesa.', 'feeds-ia' ); ?></li>
+		<li><?php esc_html_e( 'Preservação rígida de datas, valores numéricos, nomes de pessoas, editoras, sistemas, cenários e suplementos.', 'feeds-ia' ); ?></li>
+		<li><?php esc_html_e( 'Nenhuma invenção de fatos, nenhuma especulação.', 'feeds-ia' ); ?></li>
+		<li><?php esc_html_e( 'Todos os posts criados pelo plugin são salvos como rascunho para revisão humana.', 'feeds-ia' ); ?></li>
 	</ul>
 </div>
